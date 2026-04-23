@@ -1,0 +1,18 @@
+<launch>
+
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen" clear_params="true">
+        <!-- 使用我们自己的局部规划器 -->
+        <param name="base_local_planner" value="my_local_planner/MyLocalPlanner"/>
+        <rosparam file="$(find car_sim)/param/my_local_planner_params.yaml" command="load" />
+        
+        <!-- 全局规划器配置 -->
+        <param name="base_global_planner" value="global_planner/GlobalPlanner"/>
+        
+        <!-- 代价地图配置 -->
+        <rosparam file="$(find car_sim)/param/costmap_common_params.yaml" command="load" ns="global_costmap" />
+        <rosparam file="$(find car_sim)/param/costmap_common_params.yaml" command="load" ns="local_costmap" />
+        <rosparam file="$(find car_sim)/param/local_costmap_params.yaml" command="load" />
+        <rosparam file="$(find car_sim)/param/global_costmap_params.yaml" command="load" />
+    </node>
+
+</launch>

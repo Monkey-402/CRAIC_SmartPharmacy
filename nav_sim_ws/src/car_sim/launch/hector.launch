@@ -1,0 +1,84 @@
+<launch>
+  <!-- 
+    Hector SLAM 主节点 
+    - 将激光雷达数据转换为地图和位姿估计
+  -->
+  <node pkg="hector_mapping" type="hector_mapping" name="hector_mapping" output="screen">
+    
+    <!-- ############################# 框架设置 ############################# -->
+    <!-- 地图坐标系 (默认为 "map") -->
+    <param name="map_frame" value="map" />
+    
+    <!-- 里程计坐标系 (如果提供里程计数据，设为 "odom"；否则与 base_frame 相同) -->
+    <param name="odom_frame" value="odom" />
+    
+    <!-- 机器人基坐标系 (必须与 URDF 中的 base_link 一致) -->
+    <param name="base_frame" value="base_link" />
+    
+    <!-- 是否发布 map_frame 到 odom_frame 的静态变换（如果无外部里程计则设为 false） -->
+    <param name="pub_map_odom_transform" value="true" />
+
+    <param name="tf_pub_rate" value="20.0" />  <!-- 默认 10Hz，提高到 20Hz -->
+
+    <param name="map_update_interval" value="0.1" />  <!-- 地图更新间隔（秒） -->
+    
+    
+    <param name="transform_tolerance" value="0.1" />
+
+    <param name="initial_yaw" value="3.14159" />
+
+    <!-- ############################# 地图参数 ############################# -->
+    <!-- 地图分辨率 (米/像素) -->
+    <param name="map_resolution" value="0.05" />
+    
+    <!-- 地图尺寸 (像素) -->
+    <param name="map_size" value="1024" />
+    
+    <!-- 地图起始点 (像素坐标) -->
+    <param name="map_start_x" value="0.5" />
+    <param name="map_start_y" value="0.5" />
+    
+    <!-- 地图更新频率 (秒) -->
+    <param name="map_update_interval" value="0.05" />
+    
+    <!-- 地图更新阈值 (移动距离或角度超过此值才更新) -->
+    <param name="map_update_distance_thresh" value="0.05" />
+    <param name="map_update_angle_thresh" value="0.1" />
+
+
+    <!-- ############################# 激光参数 ############################# -->
+    <!-- 激光话题名称 (必须与激光雷达发布的话题一致) -->
+    <remap from="scan" to="/scan" />
+    
+    <!-- 激光最大/最小有效距离 (米) -->
+    <param name="laser_min_dist" value="0.1" />
+    <param name="laser_max_dist" value="10.0" />
+    
+    <!-- 激光 Z 轴范围 (用于过滤地面或天花板噪声) -->
+    <param name="laser_z_min_value" value="-0.5" />
+    <param name="laser_z_max_value" value="0.5" />
+
+
+    <!-- ############################# 算法参数 ############################# -->
+    <!-- 扫描匹配迭代次数 -->
+    <param name="max_iterations" value="500" />
+    
+    <!-- 高斯牛顿优化的收敛阈值 -->
+    <param name="epsilon" value="0.0001" />
+    
+    <!-- 是否使用多分辨率地图 (提高大场景精度但增加计算量) -->
+    <param name="map_multi_res_levels" value="3" />
+
+
+    <!-- ############################# 调试参数 ############################# -->
+    <!-- 是否输出计时信息 -->
+    <param name="output_timing" value="false" />
+    
+    <!-- 是否发布调试图像 -->
+    <param name="pub_drawings" value="false" />
+    
+    <!-- 是否发布地图到 scanmatcher_frame 的变换 -->
+    <param name="pub_map_scanmatch_transform" value="true" />
+  </node>
+
+</launch>

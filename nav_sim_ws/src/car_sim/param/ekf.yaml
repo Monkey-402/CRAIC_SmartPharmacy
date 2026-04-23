@@ -1,0 +1,37 @@
+# 基本设置
+frequency: 30.0        # 与IMU相同的更新频率
+sensor_timeout: 0.1    # 稍大于1/update_rate
+two_d_mode: true      # 使用3D模式，充分利用IMU数据
+
+# 输入话题配置 - IMU (与Gazebo插件匹配)
+imu0: /imu/data        # 与<topicName>一致
+imu0_config: [false, false, false,   # 不使用线性位置
+              false, false, true,    # 使用偏航角(yaw)
+              true,  true,  true]    # 使用所有线性加速度
+imu0_differential: false
+imu0_relative: false
+imu0_remove_gravitational_acceleration: true
+
+# 输入话题配置 - 里程计(可选)
+odom0: odom
+odom0_config: [true, true, true,    # 使用x,y位置
+               false, false, false,  # 不使用角度
+               true, true, true]    # 使用x,y速度
+odom0_differential: false
+
+# 坐标系配置(与Gazebo插件匹配)
+odom_frame: odom
+base_link_frame: base_link      # 与<bodyName>和<frameName>一致
+world_frame: map               # 对于SLAM可改为map
+
+# IMU特定参数
+use_control: false
+stamped_imu_data: true          # 确保时间戳正确
+
+# 过程噪声协方差(针对Gazebo仿真调整)
+process_noise_covariance: [0.1, 0,    0,    0,    0,    0,
+                           0,    0.1, 0,    0,    0,    0,
+                           0,    0,    0.1, 0,    0,    0,
+                           0,    0,    0,    0.05, 0,    0,
+                           0,    0,    0,    0,    0.05, 0,
+                           0,    0,    0,    0,    0,    0.1]

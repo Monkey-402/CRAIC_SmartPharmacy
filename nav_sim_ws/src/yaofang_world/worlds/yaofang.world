@@ -1,0 +1,28 @@
+<?xml version='1.0'?>
+<sdf version='1.6'>
+  <world name='yaofang_world'>
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <scene>
+      <shadows>false</shadows>
+      <ambient>0.8 0.8 0.8 1</ambient>
+      <background>0.85 0.85 0.85 1</background>
+    </scene>
+
+    <physics type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_update_rate>500.0</real_time_update_rate>
+    </physics>
+
+    <include>
+      <uri>model://yaofang</uri>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+  </world>
+</sdf>

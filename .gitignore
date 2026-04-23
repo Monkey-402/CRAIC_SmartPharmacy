@@ -1,0 +1,5 @@
+# Catkin build outputs
+nav_sim_ws/build/
+nav_sim_ws/devel/
+control_ws/build/
+control_ws/devel/

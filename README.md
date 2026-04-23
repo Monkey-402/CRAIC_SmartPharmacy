@@ -1,39 +1,39 @@
 # CRAIC
 
-#### 介绍
-{**以下是 Gitee 平台说明，您可以替换此简介**
-Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN）。专为开发者提供稳定、高效、安全的云端软件开发协作平台
-无论是个人、团队、或是企业，都能够用 Gitee 实现代码托管、项目管理、协作开发。企业项目请看 [https://gitee.com/enterprises](https://gitee.com/enterprises)}
+本仓库包含两个主要 ROS 工作空间，分别面向仿真导航与任务控制开发。
 
-#### 软件架构
-软件架构说明
+## 项目总览
 
+- `nav_sim_ws`：导航仿真工作空间
+  - 药房场景 Gazebo 仿真（`yaofang`）
+  - 简化小车模型（`car_simple`）
+  - `AMCL + move_base + TEB` 导航链路
+  - 详细说明见：`nav_sim_ws/README.md`
+  - 快速启动见：`nav_sim_ws/QUICKSTART.md`
 
-#### 安装教程
+- `control_ws`：任务控制与业务编排工作空间
+  - 导航任务编排与视觉任务分发
+  - 支持人物识别、车牌识别等服务式接入
+  - 当前推荐开发入口：`control_ws/src/move_nav/src/control_node.cpp`
+  - 详细说明见：`control_ws/README.md`
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 目录结构
 
-#### 使用说明
+```text
+craic/
+├── nav_sim_ws/      # 仿真与导航参数调试
+├── control_ws/      # 控制逻辑与任务编排
+└── image.png        # 当前仓库内使用的示例贴图资源
+```
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 推荐开发流程
 
-#### 参与贡献
+1. 在 `nav_sim_ws` 中完成场景、模型、导航参数调通
+2. 在 `control_ws` 中对接任务控制逻辑与视觉能力
+3. 两侧通过统一目标点、话题约定和任务协议做联调
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+## 文档入口
 
-
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+- 仿真导航文档：`nav_sim_ws/README.md`
+- 仿真快速启动：`nav_sim_ws/QUICKSTART.md`
+- 控制工作空间文档：`control_ws/README.md`
