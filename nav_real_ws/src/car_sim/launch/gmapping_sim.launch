@@ -1,0 +1,26 @@
+<launch>
+  <!-- 1. 启动 Gazebo 空世界 + 无人机 URDF 模型 -->
+  <include file="$(find car_sim)/launch/car_urdf.launch"/>
+
+
+  <!-- 2. 启动 gmapping 建图节点 -->
+  <include file="$(find car_sim)/launch/gmapping.launch"/>
+
+   <!-- 3. 启动键盘控制节点（可选） -->
+  <!-- <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop" output="screen"> -->
+    <!-- <remap from="cmd_vel" to="/cmd_vel"/>  -->
+    <!-- 确保话题与无人机控制接口一致 -->
+  <!-- </node>  -->
+
+  <!-- 4. RViz 可视化（加载预配置） -->
+  <node pkg="rviz" type="rviz" name="rviz"/>
+
+      <!-- 发布关节状态（若无关节可删除此行） -->
+    <!-- <node pkg="joint_state_publisher" name="joint_state_publisher" type="joint_state_publisher" /> -->
+
+    <!-- 发布机器人坐标系关系（TF 树） -->
+    <!-- <node pkg="robot_state_publisher" name="robot_state_publisher" type="robot_state_publisher" /> -->
+
+    <!-- <include file="$(find car_sim)/launch/urdf_to_odom.launch"/> -->
+
+</launch>

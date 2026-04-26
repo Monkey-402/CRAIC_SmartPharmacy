@@ -1,0 +1,58 @@
+<launch>
+    <!-- 使用仿真时间（Gazebo 时间而非系统时间） -->
+    <param name="use_sim_time" value="true"/>
+
+    <!-- 启动 gmapping SLAM 算法节点 -->
+    <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+      <!-- 将激光雷达话题 remap 到 "scan" -->
+      <remap from="scan" to="scan"/>
+
+      <!-- 坐标系设置 -->
+      <param name="base_frame" value="base_link"/> <!-- 机器人底盘坐标系 -->
+      <param name="odom_frame" value="odom"/>           <!-- 里程计坐标系 -->
+        <param name="map_frame" value="map"/>
+      <!-- 地图更新参数 -->
+      <param name="map_update_interval" value="5.0"/>   <!-- 地图更新间隔（秒） -->
+
+      <!-- 激光雷达参数 -->
+      <param name="maxUrange" value="5.0"/>            <!-- 激光最大有效距离（米） -->
+      <param name="sigma" value="0.05"/>                <!-- 扫描匹配的噪声标准差 -->
+      <param name="kernelSize" value="1"/>              <!-- 匹配核大小 -->
+      <param name="lstep" value="0.05"/>               <!-- 平移优化步长 -->
+      <param name="astep" value="0.05"/>               <!-- 旋转优化步长 -->
+      <param name="iterations" value="5"/>             <!-- 扫描匹配迭代次数 -->
+      <param name="lsigma" value="0.075"/>             <!-- 波束模型的 sigma -->
+      <param name="ogain" value="3.0"/>                <!-- 地图评估增益 -->
+      <param name="lskip" value="0"/>                  <!-- 跳过的激光束数（0=不跳过） -->
+
+      <!-- 里程计运动模型噪声参数 -->
+      <param name="srr" value="0.1"/>                  <!-- 平移-平移噪声系数 -->
+      <param name="srt" value="0.2"/>                  <!-- 平移-旋转噪声系数 -->
+      <param name="str" value="0.1"/>                  <!-- 旋转-平移噪声系数 -->
+      <param name="stt" value="0.2"/>                  <!-- 旋转-旋转噪声系数 -->
+
+      <!-- 粒子滤波更新阈值 -->
+      <param name="linearUpdate" value="0.1"/>          <!-- 平移运动超过此值才更新（米） -->
+      <param name="angularUpdate" value="0.2"/>         <!-- 旋转运动超过此值才更新（弧度） -->
+      <param name="temporalUpdate" value="1.0"/>        <!-- 若未达到运动阈值，强制更新时间间隔（秒） -->
+
+      <!-- 粒子滤波参数 -->
+      <param name="resampleThreshold" value="0.5"/>     <!-- 重采样阈值（粒子有效性下限） -->
+      <param name="particles" value="30"/>              <!-- 粒子数量 -->
+
+      <!-- 地图尺寸（单位：米） -->
+      <param name="xmin" value="-50.0"/>                <!-- 地图最小 x 坐标 -->
+      <param name="ymin" value="-50.0"/>               <!-- 地图最小 y 坐标 -->
+      <param name="xmax" value="50.0"/>                 <!-- 地图最大 x 坐标 -->
+      <param name="ymax" value="50.0"/>                <!-- 地图最大 y 坐标 -->
+      <param name="delta" value="0.05"/>                <!-- 地图分辨率（米/像素） -->
+
+      <!-- 采样范围参数 -->
+      <param name="llsamplerange" value="0.01"/>        <!-- 平移采样范围 -->
+      <param name="llsamplestep" value="0.01"/>         <!-- 平移采样步长 -->
+      <param name="lasamplerange" value="0.005"/>       <!-- 旋转采样范围 -->
+      <param name="lasamplestep" value="0.005"/>        <!-- 旋转采样步长 -->
+    </node>
+
+
+</launch>

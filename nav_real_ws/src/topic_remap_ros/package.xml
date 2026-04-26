@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>topic_remap_ros</name>
+  <version>0.1.0</version>
+  <description>Relay/remap topics between real robot (robot_ws) and craic nav stack naming.</description>
+  <maintainer email="todo@example.com">craic</maintainer>
+  <license>BSD</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <export/>
+</package>

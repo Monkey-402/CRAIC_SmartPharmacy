@@ -17,12 +17,21 @@
   - 当前推荐开发入口：`control_ws/src/move_nav/src/control_node.cpp`
   - 详细说明见：`control_ws/README.md`
 
+- `nav_real_ws`：实机导航工作空间（由 `nav_sim_ws` 复制，**默认不启 Gazebo**）
+  - 入口：`car_sim/launch/nav_real.launch`（map_server + AMCL + move_base）
+  - 话题对齐：`topic_remap_ros`（实车 `robot_ws` 话题名 → craic 常用名）
+  - 说明见：`nav_real_ws/NAV_REAL_WS.md`
+
+- `robot_ws`：模板工作空间，仅含底盘启动包 `eprobot_chassis_bringup`，可复制到实车 `catkin_ws` 与 `eprobot_start` 等合并使用
+
 ## 目录结构
 
 ```text
 craic/
 ├── nav_sim_ws/      # 仿真与导航参数调试
+├── nav_real_ws/     # 实机导航 + 话题重映射
 ├── control_ws/      # 控制逻辑与任务编排
+├── robot_ws/        # 底盘启动包模板（复制到实车）
 └── image.png        # 当前仓库内使用的示例贴图资源
 ```
 

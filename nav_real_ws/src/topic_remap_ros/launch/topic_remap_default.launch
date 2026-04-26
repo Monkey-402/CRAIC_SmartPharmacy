@@ -1,0 +1,14 @@
+<launch>
+  <!-- 默认：对齐 robot_ws 常见话题 -> craic control/nav 期望名称 -->
+  <node pkg="topic_remap_ros" type="topic_remap_node.py" name="topic_remap_node" output="screen">
+    <param name="relay_rgb" value="true"/>
+    <param name="rgb_in" value="/camera/rgb/image_raw"/>
+    <param name="rgb_out" value="/camera/image_raw"/>
+
+    <param name="relay_scan" value="true"/>
+    <param name="scan_in" value="/scan_filtered"/>
+    <param name="scan_out" value="/scan"/>
+    <!-- car_sim costmap 使用 laser_link；实车常为 base_laser_link，按需改 static_tf 或此处 -->
+    <param name="scan_frame_id" value="laser_link"/>
+  </node>
+</launch>

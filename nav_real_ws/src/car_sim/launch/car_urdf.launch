@@ -1,0 +1,38 @@
+<launch>
+  <!-- 启动 Gazebo 空世界 -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find yaofang_world)/worlds/yaofang.world" />
+    <arg name="use_sim_time" value="true"/>
+    <env name="GAZEBO_PHYSICS_ENGINE" value="bullet" />
+    <env name="GAZEBO_MODEL_PATH" value="$(find yaofang_world)/models:$(optenv GAZEBO_MODEL_PATH)" />
+    <!-- 启用GUI以便查看机器人 -->
+    <arg name="gui" default="true" />
+    <arg name="headless" default="false" />
+    <arg name="debug" default="false" />
+    <arg name="paused" default="false"/>
+  </include>
+
+  <!-- 加载简化版机器人模型 -->
+  <param name="robot_description" textfile="$(find car_simple)/urdf/car_simple.urdf" />
+    
+  <!-- 在 Gazebo 中生成机器人模型 -->
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
+        args="-urdf -model car_simple -param robot_description -x 1.74 -y 1.74 -z 0.1 -Y 3.14"
+        respawn="false" output="screen" />
+  
+  <!-- 发布机器人状态 TF -->
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen"/>
+  
+  <!-- 发布关节状态 -->
+  <node pkg="joint_state_publisher" name="joint_state_publisher" type="joint_state_publisher" output="screen">
+    <param name="use_gui" value="false"/>
+  </node>
+
+  <!-- 可选: 加载ROS控制参数 -->
+  <!-- <rosparam file="$(find mowen2)/config/control.yaml" command="load"/> -->
+  
+  <!-- 可选: 启动控制器管理器 -->
+  <!-- <node name="controller_spawner" pkg="controller_manager" type="spawner" 
+        args="joint_state_controller mobile_base_controller"/> -->
+
+</launch>

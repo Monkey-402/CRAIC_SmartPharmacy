@@ -1,0 +1,56 @@
+TrajectoryPlannerROS:
+  # ========================
+  # 机器人运动参数
+  # ========================
+  holonomic_robot: true       # 是否为全向机器人（true/false）
+  
+  # 线速度限制 (m/s)
+  max_vel_x: 0.5              # 最大前进速度
+  min_vel_x: -0.5             # 最大后退速度
+  max_vel_y: 0.3              # 最大横向速度（全向机器人）
+  min_vel_y: -0.3             # 最小横向速度
+  max_vel_theta: 1.0          # 最大旋转速度 (rad/s)
+  min_vel_theta: -1.0         # 最小旋转速度
+  
+  # 加速度限制 (m/s²)
+  acc_lim_x: 0.5              
+  acc_lim_y: 0.3              
+  acc_lim_theta: 0.5          
+  
+  # ========================
+  # 轨迹生成参数
+  # ========================
+  sim_time: 1.5               # 规划时间范围 (秒)
+  sim_granularity: 0.025       # 轨迹点间距 (m)
+  angular_sim_granularity: 0.05 # 角度采样间隔 (rad)
+  
+  # 速度采样数
+  vx_samples: 8               # x方向速度采样
+  vy_samples: 5               # y方向速度采样（全向机器人）
+  vtheta_samples: 20          # 旋转速度采样
+  
+  # ========================
+  # 路径评分权重
+  # ========================
+  path_distance_bias: 0.6      # 路径跟随权重（值越大越严格跟随全局路径）
+  goal_distance_bias: 0.8      # 目标点权重（值越大越积极朝向目标）
+  occdist_scale: 0.1           # 障碍物避让权重（值越大越远离障碍物）
+  
+  # ========================
+  # 目标容忍度
+  # ========================
+  xy_goal_tolerance: 0.1       # 目标位置容差 (m)
+  yaw_goal_tolerance: 0.1      # 目标角度容差 (rad)
+  latch_xy_goal_tolerance: false # 是否锁定位置容差
+  
+  # ========================
+  # 特殊行为参数
+  # ========================
+  escape_vel: -0.2             # 避障时后退速度
+  oscillation_reset_dist: 0.05  # 震荡检测距离 (m)
+  
+  # ========================
+  # 障碍物检测
+  # ========================
+  prune_plan: true             # 是否裁剪已通过的全局路径
+  max_obstacle_dist: 2.5       # 障碍物最大影响距离 (m)

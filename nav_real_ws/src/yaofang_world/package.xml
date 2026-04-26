@@ -1,0 +1,17 @@
+<package format="2">
+  <name>yaofang_world</name>
+  <version>1.0.0</version>
+  <description>Yaofang terrain/world package for Gazebo simulation</description>
+
+  <maintainer email="todo@example.com">todo</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>gazebo_ros</depend>
+  <depend>roslaunch</depend>
+
+  <export>
+    <architecture_independent />
+  </export>
+</package>

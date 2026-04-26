@@ -1,0 +1,23 @@
+<launch>
+  <!-- 启动 Gazebo 空世界 + 无人机 URDF 模型 -->
+  <include file="$(find car_sim)/launch/car_urdf.launch"/>
+
+    <!-- 运行地图服务器，并且加载设置的地图-->
+    <include file="$(find car_sim)/launch/map_server.launch"/>
+
+    <!-- 启动AMCL节点 -->
+    <include file="$(find car_sim)/launch/amcl.launch" />
+
+  
+    <!-- 启动 gmapping 建图节点 -->
+    <!-- <include file="$(find car_sim)/launch/gmapping.launch"/> -->
+
+    <!-- 发布关节状态（若无关节可删除此行） -->
+    <!-- <node pkg="joint_state_publisher" name="joint_state_publisher" type="joint_state_publisher" /> -->
+
+    <!-- 发布机器人坐标系关系（TF 树） -->
+    <!-- <node pkg="robot_state_publisher" name="robot_state_publisher" type="robot_state_publisher" /> -->
+
+    <!-- 运行rviz -->
+    <node pkg="rviz" type="rviz" name="rviz"/>
+</launch>

@@ -1,0 +1,39 @@
+# ========== 核心框架参数 ==========
+EBandPlannerROS:
+  # 坐标系设置
+  global_frame: map                    # 全局坐标系（通常为map或odom）
+  robot_base_frame: base_link          # 机器人基坐标系
+  odom_topic: odom                     # 里程计话题
+
+  # ========== 弹性带控制 ==========
+  num_particles: 30                    # 弹性带上的控制点数量（默认30，减少可降内存）
+  spring_stiffness: 0.5                # 弹性带刚度（值越大，路径越贴近全局路径）
+  spring_rest_length: 0.1              # 弹性带自然长度（控制点间距，单位：米）
+  max_spring_force: 1                # 最大弹性力（限制路径变形强度）
+
+  # ========== 障碍物处理 ==========
+  obstacle_inflation_radius: 0.6       # 障碍物膨胀半径（需≥机器人半径）
+  min_obstacle_dist: 0.5               # 最小障碍物距离（必须<inflation_radius）
+  costmap_weight: 15.0                  # 代价地图权重（值越大越避障）
+  inflation_weight: 10.0                # 膨胀层权重
+
+  # ========== 路径跟踪 ==========
+  goal_dist_tolerance: 0.2             # 目标点容差（米）
+  yaw_tolerance: 0.2                   # 航向角容差（弧度）
+  max_global_plan_lookahead_dist: 5.0  # 前瞻全局路径的最大距离（米）
+  global_plan_prune_distance: 0.5      # 全局路径修剪步长（减少计算量）
+
+  # ========== 速度限制（全向轮需特殊配置） ==========
+  # 注意：EBand原生对全向轮支持有限，需配合全局规划器使用
+  max_vel_x: 0.5                       # X方向最大速度（m/s）
+  min_vel_x: -0.5                       # X方向反向速度
+  max_vel_y: 0.5                       # Y方向最大速度（m/s）
+  min_vel_y: -0.5                       # Y方向反向速度
+  max_vel_theta: 0.2                    # 最大角速度（rad/s）
+  acc_lim_x: 0.5                        # X轴加速度（m/s²）
+  acc_lim_y: 0.5                        # Y轴加速度（m/s²）
+  acc_lim_theta: 0.2                    # 角加速度（rad/s²）
+
+  # ========== 可视化调试 ==========
+  publish_e_band_vis: true             # 发布弹性带可视化（RViz中显示）
+  visualize_only: false                # 仅可视化不实际控制（调试用）

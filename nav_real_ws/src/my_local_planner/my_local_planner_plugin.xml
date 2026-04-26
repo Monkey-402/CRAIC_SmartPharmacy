@@ -1,0 +1,7 @@
+<library path="lib/libmy_local_planner">
+  <class name="my_local_planner/MyLocalPlanner" type="my_local_planner::MyLocalPlanner" base_class_type="nav_core::BaseLocalPlanner">
+    <description>
+      A simple local planner implementation for ROS navigation stack.
+    </description>
+  </class>
+</library>
