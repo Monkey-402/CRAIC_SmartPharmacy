@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <atomic>
-#include <cctype>
 #include <clocale>
 #include <sstream>
 #include <string>
@@ -31,18 +30,19 @@
  *
  * 建议的最小消息格式：
  *
- * TaskRequest.msg
- *   string task_id
- *   string task_type
- *   string image_path
+ * TaskRequest.msg  #请求消息格式
+ *   string task_id     #任务编号
+ *   string task_type   #任务类型，例如 "board1_decode" 或 "board2_decode"，
+ *                      #视觉节点通过这个字段区分识别板一/识别板二任务。
+ *   string image_path  #图片路径
  *
- * TaskResult.msg
- *   string task_id
- *   bool has_a
- *   bool has_b
- *   bool has_c
- *   int32 delivery_slot   # 1=血常规，2=体液，3=免疫检测，4=激素检验
- *   int32 sample_count
+ * TaskResult.msg   #结果消息格式
+ *   string task_id  #任务编号（和请求消息中的 task_id写成一样就可以了）
+ *   bool has_a     # A 窗口是否有样本，有就置1
+ *   bool has_b     # B 窗口是否有样本
+ *   bool has_c     # C 窗口是否有样本
+ *   int32 delivery_slot   # 送达目标点 1=血常规，2=体液，3=免疫检测，4=激素检验
+ *   int32 sample_count     #样本数量
  * 
  *   bool lab_open
  *   int32 wait_seconds
@@ -302,127 +302,6 @@ const GoalTask* findGoalByName(const std::string& name) {
     return nullptr;
 }
 
-// 将化验区窗口编号映射为 GOAL_LIST 中的导航点名称。
-// 当前支持 1、2、3、4，未知值默认返回 deliver_1。
-std::string deliveryGoalNameForSlot(int delivery_slot) {
-    if (delivery_slot == 2) {
-        return "deliver_2";
-    }
-    if (delivery_slot == 3) {
-        return "deliver_3";
-    }
-    if (delivery_slot == 4) {
-        return "deliver_4";
-    }
-    return "deliver_1";
-}
-
-// 根据地图位置生成取样路线。体检区中 C 离识别板一更近，因此优先 C，再 A，最后 B。
-// 例如 A+B+C 会生成 pickup_C、pickup_A、pickup_B；B+C 会生成 pickup_C、pickup_B。
-std::vector<std::string> buildPickupRoute(const Board1Decision& decision) {
-    std::vector<std::string> route; 
-    if (decision.has_a) {
-        route.push_back("pickup_A");
-    }
-    if (decision.has_c) {
-        route.push_back("pickup_C");
-    }
-    if (decision.has_b) {
-        route.push_back("pickup_B");
-    }
-    return route;
-}
-
-// 将样本类型编码转换成中文播报名称。
-// 样本类型由目标化验窗口决定：1静脉血、2唾液、3组织、4血浆。
-std::string sampleTypeName(int delivery_slot) {
-    if (delivery_slot == 4) {
-        return "血浆样本";
-    }
-    if (delivery_slot == 3) {
-        return "组织样本";
-    }
-    if (delivery_slot == 2) {
-        return "唾液样本";
-    }
-    return "静脉血样本";
-}
-
-// 将化验窗口编号转换成中文播报名称。
-// 规则中 1/2/3/4 分别对应血常规、体液、免疫检测、激素检验。
-std::string deliveryWindowName(int delivery_slot) {
-    if (delivery_slot == 2) {
-        return "体液窗口";
-    }
-    if (delivery_slot == 3) {
-        return "免疫检测窗口";
-    }
-    if (delivery_slot == 4) {
-        return "激素检验窗口";
-    }
-    return "血常规窗口";
-}
-
-std::string pickupWindowName(const std::string& goal_name) {
-    if (goal_name == "pickup_C") {
-        return "C";
-    }
-    if (goal_name == "pickup_B") {
-        return "B";
-    }
-    return "A";
-}
-
-// 到达取样窗口后停留，取样播报在最后一个取样点完成后统一发布。
-void waitAtPickupGoal(const std::string& goal_name) {
-    // 规则要求取样时车身进入方框并明显停留，建议 1-2 秒。
-    ros::Duration(1.5).sleep();
-    const std::string window_name = pickupWindowName(goal_name);
-    ROS_INFO("Sample picked: source_slot=%s", window_name.c_str());
-}
-
-std::string pickupWindowListText(const Board1Decision& decision) {
-    std::vector<std::string> windows;
-    if (decision.has_a) {
-        windows.push_back("A");
-    }
-    if (decision.has_b) {
-        windows.push_back("B");
-    }
-    if (decision.has_c) {
-        windows.push_back("C");
-    }
-
-    std::ostringstream oss;
-    for (size_t i = 0; i < windows.size(); ++i) {
-        if (i > 0) {
-            oss << "、";
-        }
-        oss << windows[i];
-    }
-    return oss.str();
-}
-
-// 取完当前二维码中的最后一个样本后，按规则播报一次汇总取样信息。
-void announcePickedSummary(const Board1Decision& decision) {
-    ROS_INFO("Pickup speech: 取到%s窗口的%s",
-             pickupWindowListText(decision).c_str(),
-             sampleTypeName(decision.delivery_slot).c_str());
-    playAudioFile("/path/to/pickup_summary.mp3");
-}
-
-// 到达化验窗口后停留并发布送达播报。
-void announceDeliveredAtGoal(const Board1Decision& decision) {
-    // 规则要求送达时车身进入方框并明显停留，建议 1-2 秒。
-    ros::Duration(1.5).sleep();
-    ROS_INFO("Samples delivered: delivery_slot=%d, count=%d",
-             decision.delivery_slot, decision.sample_count);
-    ROS_INFO("Delivery speech: 到达%s，样本数为%d",
-             deliveryWindowName(decision.delivery_slot).c_str(),
-             decision.sample_count);
-    playAudioFile("/path/to/delivery_notice.mp3");
-}
-
 // 设置拍照标志
 // task_type 可为 board1_decode 或 board2_decode。
 bool requestVisionTaskAtCurrentPoint(const std::string& task_type,
@@ -502,39 +381,11 @@ bool requestBoard2DecodeAtCurrentPoint(Board2Decision* decision) {
     return true;
 }
 
-// 进入化验区前处理识别板二：到点、拍照识别、播报、必要时等待。
-bool handleBoard2BeforeLabArea(MoveBaseClient& move_client) {
-    const GoalTask* board2_goal = findGoalByName("board2_scan");
-    if (board2_goal == nullptr) {
-        ROS_ERROR("GOAL_LIST has no board2_scan goal");
-        return false;
-    }
-
-    if (!movetoPoint(*board2_goal, move_client)) {
-        return false;
-    }
-
-    Board2Decision decision;
-    if (!requestBoard2DecodeAtCurrentPoint(&decision)) {
-        return false;
-    }
-
-    ROS_INFO("Board2 speech: %s", decision.speech_text.c_str());
-    playAudioFile("/path/to/board2_notice.mp3");
-    if (decision.wait_seconds > 0) {
-        ROS_INFO("Lab area busy, wait %d seconds before passing", decision.wait_seconds);
-        ros::Duration(decision.wait_seconds).sleep();
-    } else {
-        ROS_INFO("Lab area open, pass as soon as possible");
-    }
-    return true;
-}
-
 // 执行一轮完整配送任务：识别板一 -> 取样 -> 识别板二 -> 送样。
 bool runOneQrMission(MoveBaseClient& move_client) {
     ROS_INFO("========== Start one QR mission ==========");
 
-    
+    // 先到识别板一拍照并解析，得到本轮任务的 A/B/C 窗口状态、目的地和样本数。
     const GoalTask* board1_goal = findGoalByName("board1_scan");
     if (board1_goal == nullptr) {
         ROS_ERROR("GOAL_LIST has no board1_scan goal");
@@ -559,8 +410,20 @@ bool runOneQrMission(MoveBaseClient& move_client) {
              board1_decision.delivery_slot,
              board1_decision.sample_count);
 
-    // 一次性取完当前二维码中的所有样本，符合规则中的一次性配送加分方向。
-    const std::vector<std::string> pickup_route = buildPickupRoute(board1_decision);
+    // 一次性取完当前二维码中的所有样本
+    std::vector<std::string> pickup_route;
+    if (board1_decision.has_a) {
+        pickup_route.push_back("pickup_A");
+    }
+    if (board1_decision.has_c) {
+        pickup_route.push_back("pickup_C");
+    }
+    if (board1_decision.has_b) {
+        pickup_route.push_back("pickup_B");
+    }
+
+    // 依次到 A/B/C 取样窗口取样，并记录取样窗口名称用于后续播报。
+    std::string pickup_windows;
     for (const std::string& goal_name : pickup_route) {
         const GoalTask* goal = findGoalByName(goal_name);
         if (goal == nullptr) {
@@ -570,18 +433,53 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         if (!movetoPoint(*goal, move_client)) {
             return false;
         }
-        waitAtPickupGoal(goal_name);
+
+        
+        ros::Duration(1.5).sleep();
+        const std::string window_name = goal_name.substr(goal_name.size() - 1);
+        if (!pickup_windows.empty()) {
+            pickup_windows += "、";
+        }
+        pickup_windows += window_name;
+        ROS_INFO("Sample picked: source_slot=%s", window_name.c_str());
     }
-    announcePickedSummary(board1_decision);
+
+    const char* sample_type = "静脉血样本";
+    if (board1_decision.delivery_slot == 2) {
+        sample_type = "唾液样本";
+    } else if (board1_decision.delivery_slot == 3) {
+        sample_type = "组织样本";
+    } else if (board1_decision.delivery_slot == 4) {
+        sample_type = "血浆样本";
+    }
+
+    ROS_INFO("Pickup speech: 取到%s窗口的%s", pickup_windows.c_str(), sample_type);
+    playAudioFile("/path/to/pickup_summary.mp3");
 
     // 进入化验区前先处理识别板二的空闲/忙碌提示。
-    if (!handleBoard2BeforeLabArea(move_client)) {
+    const GoalTask* board2_goal = findGoalByName("board2_scan");
+    if (board2_goal == nullptr) {
+        ROS_ERROR("GOAL_LIST has no board2_scan goal");
         return false;
+    }
+    if (!movetoPoint(*board2_goal, move_client)) {
+        return false;
+    }
+
+    Board2Decision board2_decision;
+    if (!requestBoard2DecodeAtCurrentPoint(&board2_decision)) {
+        return false;
+    }
+    ROS_INFO("Board2 speech: %s", board2_decision.speech_text.c_str());
+    playAudioFile("/path/to/board2_notice.mp3");
+    if (board2_decision.wait_seconds > 0) {
+        ROS_INFO("Lab area busy, wait %d seconds before passing", board2_decision.wait_seconds);
+        ros::Duration(board2_decision.wait_seconds).sleep();
     }
 
     // 当前二维码中的样本都送到同一个化验窗口，因此只需要去一个送样点。
     const std::string delivery_goal_name =
-        deliveryGoalNameForSlot(board1_decision.delivery_slot);
+        "deliver_" + std::to_string(board1_decision.delivery_slot);
     const GoalTask* delivery_goal = findGoalByName(delivery_goal_name);
     if (delivery_goal == nullptr) {
         ROS_ERROR("GOAL_LIST has no delivery goal: %s", delivery_goal_name.c_str());
@@ -590,19 +488,26 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     if (!movetoPoint(*delivery_goal, move_client)) {
         return false;
     }
-    announceDeliveredAtGoal(board1_decision);
+
+    const char* delivery_window = "血常规窗口";
+    if (board1_decision.delivery_slot == 2) {
+        delivery_window = "体液窗口";
+    } else if (board1_decision.delivery_slot == 3) {
+        delivery_window = "免疫检测窗口";
+    } else if (board1_decision.delivery_slot == 4) {
+        delivery_window = "激素检验窗口";
+    }
+
+    ros::Duration(1.5).sleep();
+    ROS_INFO("Samples delivered: delivery_slot=%d, count=%d",
+             board1_decision.delivery_slot, board1_decision.sample_count);
+    ROS_INFO("Delivery speech: 到达%s，样本数为%d",
+             delivery_window, board1_decision.sample_count);
+    playAudioFile("/path/to/delivery_notice.mp3");
 
     playAudioFile("/path/to/mission_done.mp3");
     ROS_INFO("========== One QR mission finished ==========");
     return true;
-}
-
-// 尝试返回起点 home；如果 GOAL_LIST 中没有 home，则不做动作。
-void returnHomeIfPossible(MoveBaseClient& move_client) {
-    const GoalTask* home_goal = findGoalByName("home");
-    if (home_goal != nullptr) {
-        movetoPoint(*home_goal, move_client);
-    }
 }
 
 // ROS 节点入口：初始化通信接口，连接 move_base，并循环执行配送任务。
@@ -638,7 +543,10 @@ int main(int argc, char* argv[]) {
     while (ros::ok() && (g_max_rounds <= 0 || completed_rounds < g_max_rounds)) {
         current_point = 0;
         const bool ok = runOneQrMission(move_client);
-        returnHomeIfPossible(move_client);
+        const GoalTask* home_goal = findGoalByName("home");
+        if (home_goal != nullptr) {
+            movetoPoint(*home_goal, move_client);
+        }
 
         if (!ok) {
             playAudioFile("/path/to/task_error.mp3");
