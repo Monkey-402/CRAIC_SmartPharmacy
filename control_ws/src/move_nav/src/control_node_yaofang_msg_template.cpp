@@ -68,20 +68,6 @@ struct GoalTask {
     std::string name;  // 业务点名称，用于把识别结果映射到具体导航点。
 };
 
-struct Board1Decision {
-    bool has_a = false;      // A 窗口是否有样本
-    bool has_b = false;      // B 窗口是否有样本
-    bool has_c = false;      // C 窗口是否有样本
-    int delivery_slot = 1;   // 目标化验窗口：1/2/3/4
-    int sample_count = 0;    // 样本数量
-};
-
-struct Board2Decision {
-    bool lab_open = true;  // true 表示化验区空闲；false 表示需要等待。
-    int wait_seconds = 0;  // 忙碌时等待秒数，规则中通常为 5-10 秒。
-    std::string speech_text = "化验区空闲中，请快速通过";  // 识别板二要求播报的原文。
-};
-
 // 这些坐标是模板占位值。实车或仿真运行前，需要用对应地图重新取点。
 const std::vector<GoalTask> GOAL_LIST = {
       {1.210, 3.725, -3.062, "home"},
@@ -337,50 +323,6 @@ bool requestVisionTaskAtCurrentPoint(const std::string& task_type,
     return ok;
 }
 
-// 请求识别板一解析，直接保存 A/B/C 是否有样本、目的地和样本数。
-bool requestBoard1DecodeAtCurrentPoint(Board1Decision* decision) {
-    move_nav::TaskResult result;
-    if (!requestVisionTaskAtCurrentPoint("board1_decode", 15.0, &result)) {
-        ROS_WARN("Board1 vision task failed or timed out");
-        return false;
-    }
-
-    decision->has_a = result.has_a;
-    decision->has_b = result.has_b;
-    decision->has_c = result.has_c;
-    decision->delivery_slot = std::max(1, std::min(4, result.delivery_slot));
-    decision->sample_count = result.sample_count;
-
-    
-    if (!decision->has_a && !decision->has_b && !decision->has_c) {
-        ROS_WARN("Board1 returned no A/B/C source window");
-        return false;
-    }
-    return true;
-}
-
-// 请求识别板二解析，得到化验区空闲/忙碌状态和需要播报的文字。
-// 识别失败时默认按“空闲”处理，避免流程卡死。
-bool requestBoard2DecodeAtCurrentPoint(Board2Decision* decision) {
-    move_nav::TaskResult result;
-    if (!requestVisionTaskAtCurrentPoint("board2_decode", 15.0, &result)) {
-        ROS_WARN("Board2 vision task failed or timed out, defaulting to lab open");
-        *decision = Board2Decision();
-        return true;
-    }
-
-    decision->lab_open = result.lab_open;
-    decision->wait_seconds = std::max(0, result.wait_seconds);
-    decision->speech_text = result.speech_text.empty()
-        ? (result.lab_open ? "化验区空闲中，请快速通过" : "化验区忙碌中，请等待")
-        : result.speech_text;
-
-    if (!decision->lab_open && decision->wait_seconds <= 0) {
-        decision->wait_seconds = 5;
-    }
-    return true;
-}
-
 // 执行一轮完整配送任务：识别板一 -> 取样 -> 识别板二 -> 送样。
 bool runOneQrMission(MoveBaseClient& move_client) {
     ROS_INFO("========== Start one QR mission ==========");
@@ -391,34 +333,39 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         ROS_ERROR("GOAL_LIST has no board1_scan goal");
         return false;
     }
-    
+
     if (!movetoPoint(*board1_goal, move_client)) {
         return false;
     }
 
-    // 识别板一决定本轮 A/B/C 哪些窗口有样本，以及最终送到哪个化验窗口。
-    Board1Decision board1_decision;
-    if (!requestBoard1DecodeAtCurrentPoint(&board1_decision)) {
+    move_nav::TaskResult board1_result;
+    if (!requestVisionTaskAtCurrentPoint("board1_decode", 15.0, &board1_result)) {
         ROS_ERROR("Failed to decode board1");
+        return false;
+    }
+    board1_result.delivery_slot = std::max(1, std::min(4, board1_result.delivery_slot));
+
+    if (!board1_result.has_a && !board1_result.has_b && !board1_result.has_c) {
+        ROS_WARN("Board1 returned no A/B/C source window");
         return false;
     }
 
     ROS_INFO("Board1: A=%d, B=%d, C=%d, delivery_slot=%d, sample_count=%d",
-             board1_decision.has_a,
-             board1_decision.has_b,
-             board1_decision.has_c,
-             board1_decision.delivery_slot,
-             board1_decision.sample_count);
+             board1_result.has_a,
+             board1_result.has_b,
+             board1_result.has_c,
+             board1_result.delivery_slot,
+             board1_result.sample_count);
 
     // 一次性取完当前二维码中的所有样本
     std::vector<std::string> pickup_route;
-    if (board1_decision.has_a) {
+    if (board1_result.has_a) {
         pickup_route.push_back("pickup_A");
     }
-    if (board1_decision.has_c) {
+    if (board1_result.has_c) {
         pickup_route.push_back("pickup_C");
     }
-    if (board1_decision.has_b) {
+    if (board1_result.has_b) {
         pickup_route.push_back("pickup_B");
     }
 
@@ -434,7 +381,6 @@ bool runOneQrMission(MoveBaseClient& move_client) {
             return false;
         }
 
-        
         ros::Duration(1.5).sleep();
         const std::string window_name = goal_name.substr(goal_name.size() - 1);
         if (!pickup_windows.empty()) {
@@ -445,11 +391,11 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     }
 
     const char* sample_type = "静脉血样本";
-    if (board1_decision.delivery_slot == 2) {
+    if (board1_result.delivery_slot == 2) {
         sample_type = "唾液样本";
-    } else if (board1_decision.delivery_slot == 3) {
+    } else if (board1_result.delivery_slot == 3) {
         sample_type = "组织样本";
-    } else if (board1_decision.delivery_slot == 4) {
+    } else if (board1_result.delivery_slot == 4) {
         sample_type = "血浆样本";
     }
 
@@ -466,20 +412,34 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         return false;
     }
 
-    Board2Decision board2_decision;
-    if (!requestBoard2DecodeAtCurrentPoint(&board2_decision)) {
-        return false;
+    // 请求识别板二的视觉任务，获取化验区状态和等待时间等信息，并根据结果播报提示语。
+    move_nav::TaskResult board2_result;
+    if (!requestVisionTaskAtCurrentPoint("board2_decode", 15.0, &board2_result)) {
+        ROS_WARN("Board2 vision task failed or timed out, defaulting to lab open");
+        board2_result.lab_open = true;
+        board2_result.wait_seconds = 0;
+        board2_result.speech_text = "化验区空闲中，请快速通过";
     }
-    ROS_INFO("Board2 speech: %s", board2_decision.speech_text.c_str());
+
+    board2_result.wait_seconds = std::max(0, board2_result.wait_seconds);
+    if (board2_result.speech_text.empty()) {
+        board2_result.speech_text =
+            board2_result.lab_open ? "化验区空闲中，请快速通过" : "化验区忙碌中，请等待";
+    }
+    if (!board2_result.lab_open && board2_result.wait_seconds <= 0) {
+        board2_result.wait_seconds = 5;
+    }
+
+    ROS_INFO("Board2 speech: %s", board2_result.speech_text.c_str());
     playAudioFile("/path/to/board2_notice.mp3");
-    if (board2_decision.wait_seconds > 0) {
-        ROS_INFO("Lab area busy, wait %d seconds before passing", board2_decision.wait_seconds);
-        ros::Duration(board2_decision.wait_seconds).sleep();
+    if (board2_result.wait_seconds > 0) {
+        ROS_INFO("Lab area busy, wait %d seconds before passing", board2_result.wait_seconds);
+        ros::Duration(board2_result.wait_seconds).sleep();
     }
 
     // 当前二维码中的样本都送到同一个化验窗口，因此只需要去一个送样点。
     const std::string delivery_goal_name =
-        "deliver_" + std::to_string(board1_decision.delivery_slot);
+        "deliver_" + std::to_string(board1_result.delivery_slot);
     const GoalTask* delivery_goal = findGoalByName(delivery_goal_name);
     if (delivery_goal == nullptr) {
         ROS_ERROR("GOAL_LIST has no delivery goal: %s", delivery_goal_name.c_str());
@@ -490,19 +450,19 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     }
 
     const char* delivery_window = "血常规窗口";
-    if (board1_decision.delivery_slot == 2) {
+    if (board1_result.delivery_slot == 2) {
         delivery_window = "体液窗口";
-    } else if (board1_decision.delivery_slot == 3) {
+    } else if (board1_result.delivery_slot == 3) {
         delivery_window = "免疫检测窗口";
-    } else if (board1_decision.delivery_slot == 4) {
+    } else if (board1_result.delivery_slot == 4) {
         delivery_window = "激素检验窗口";
     }
 
     ros::Duration(1.5).sleep();
     ROS_INFO("Samples delivered: delivery_slot=%d, count=%d",
-             board1_decision.delivery_slot, board1_decision.sample_count);
+             board1_result.delivery_slot, board1_result.sample_count);
     ROS_INFO("Delivery speech: 到达%s，样本数为%d",
-             delivery_window, board1_decision.sample_count);
+             delivery_window, board1_result.sample_count);
     playAudioFile("/path/to/delivery_notice.mp3");
 
     playAudioFile("/path/to/mission_done.mp3");
