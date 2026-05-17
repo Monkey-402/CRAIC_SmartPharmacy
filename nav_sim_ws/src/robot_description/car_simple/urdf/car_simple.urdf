@@ -9,7 +9,7 @@
 
   <link name="base_footprint"/>
 
-  <!-- 简化车身: 0.35 x 0.20 x 0.10 m -->
+  <!-- body: 0.35 x 0.20 x 0.10 m -->
   <link name="base_link">
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -37,7 +37,7 @@
     <origin xyz="0 0 0.05" rpy="0 0 0"/>
   </joint>
 
-  <!-- 传感器位置保持与原模型一致 -->
+  <!-- sensor mounts aligned with original model -->
   <link name="laser_link">
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
