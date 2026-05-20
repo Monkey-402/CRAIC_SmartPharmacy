@@ -59,13 +59,14 @@
 #define SAVE_DIR "/home/zinn/snapshots/"
 #endif
 
+//定义别名
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 struct GoalTask {
     double x;
     double y;
     double yaw;
-    std::string name;  // 业务点名称，用于把识别结果映射到具体导航点。
+    std::string name;  // 任务点名称，用于把识别结果映射到具体导航点。
 };
 
 // 这些坐标是模板占位值。实车或仿真运行前，需要用对应地图重新取点。
@@ -82,19 +83,21 @@ const std::vector<GoalTask> GOAL_LIST = {
       {2.602, 3.030, 1.543, "deliver_4"}
 };
 
-ros::Publisher g_task_request_pub;
-ros::Publisher g_audio_play_pub;
+ros::Publisher g_task_request_pub;// 任务请求发布
+ros::Publisher g_audio_play_pub;// 语音请求发布
 
-static std::atomic<int> g_img_idx(0);
-static std::atomic<int> g_task_idx(0);
+static std::atomic<int> g_img_idx(0);// 图像序号计数器
+static std::atomic<int> g_task_idx(0);// 任务序号计数器
 
+// 运行模式与配置
 bool g_use_mock_data = false;
 bool g_mock_navigation = false;
 int g_max_rounds = 0;
 
-size_t current_point = 0;
+size_t current_point = 0;// 导航点索引
 
 bool g_take_photo = false;
+
 std::string g_pending_task_id;// 当前待处理的视觉任务 ID
 std::string g_pending_task_type;// 当前待处理的视觉任务类型，例如 "board1_decode" 或 "board2_decode"。
 
@@ -102,6 +105,7 @@ std::string g_pending_task_type;// 当前待处理的视觉任务类型，例如
 std::string g_last_result_task_id;
 move_nav::TaskResult g_last_result;// 最近一次视觉任务结果
 
+// 生成模拟视觉识别结果
 move_nav::TaskResult makeMockTaskResult(const std::string& task_id,
                                         const std::string& task_type) {
     move_nav::TaskResult result;
@@ -278,7 +282,7 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     return true;
 }
 
-// 按业务点名称查找对应导航点，例如 board1_scan、pickup_A、deliver_1。
+// 按任务点名称查找对应导航点，例如 board1_scan、pickup_A、deliver_1。
 const GoalTask* findGoalByName(const std::string& name) {
     for (const GoalTask& goal : GOAL_LIST) {
         if (goal.name == name) {
@@ -359,17 +363,17 @@ bool runOneQrMission(MoveBaseClient& move_client) {
 
     // 一次性取完当前二维码中的所有样本
     std::vector<std::string> pickup_route;
-    if (board1_result.has_a) {
-        pickup_route.push_back("pickup_A");
-    }
     if (board1_result.has_c) {
         pickup_route.push_back("pickup_C");
+    }
+    if (board1_result.has_a) {
+        pickup_route.push_back("pickup_A");
     }
     if (board1_result.has_b) {
         pickup_route.push_back("pickup_B");
     }
 
-    // 依次到 A/B/C 取样窗口取样，并记录取样窗口名称用于后续播报。
+    // 依次到 C/A/B 取样窗口取样，并记录取样窗口名称用于后续播报。
     std::string pickup_windows;
     for (const std::string& goal_name : pickup_route) {
         const GoalTask* goal = findGoalByName(goal_name);
@@ -381,7 +385,7 @@ bool runOneQrMission(MoveBaseClient& move_client) {
             return false;
         }
 
-        ros::Duration(1.5).sleep();
+        ros::Duration(1.5).sleep();// 停留1.5秒
         const std::string window_name = goal_name.substr(goal_name.size() - 1);
         if (!pickup_windows.empty()) {
             pickup_windows += "、";

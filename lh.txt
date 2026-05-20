@@ -1,0 +1,87 @@
+1. 启动仿真环境：
+
+cd CRAIC_SmartPharmacy/nav_sim_ws
+source ./devel/setup.bash
+roslaunch car_sim nav_sim.launch
+
+home：
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 1.210, y: 3.725, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.999208, w: 0.039786}"
+
+
+board1_scan:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 0.683, y: 3.692, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.999823, w: 0.018795}"
+
+
+A:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 0.820, y: 0.973, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.706825, w: 0.707388}"
+
+
+B:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 0.001, y: 0.499, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.743975, w: 0.668207}"
+
+
+C:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 0.043, y: 1.501, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.748634, w: 0.662983}"
+
+
+board2_scan:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 2.265, y: 0.202, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.023998, w: 0.999712}"
+
+
+1:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 3.407, y: 1.470, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.741297, w: 0.671178}"
+
+
+2:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 2.675, y: 2.089, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.589145, w: 0.808028}"
+
+
+3:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 3.382, y: 2.515, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.739953, w: 0.672659}"
+
+
+4:
+rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
+  frame_id: 'map'
+pose:
+  position: {x: 2.602, y: 3.030, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.697211, w: 0.716866}"
+
+验证点
+rosrun tf tf_echo map base_link
