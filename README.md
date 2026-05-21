@@ -43,6 +43,8 @@ craic/
 
 ## 文档入口
 
+- Git 开发提交流程：`GIT_WORKFLOW.md`
 - 仿真导航文档：`nav_sim_ws/README.md`
-- 仿真快速启动：`nav_sim_ws/QUICKSTART.md`
+- 仿真快速启动（含 Docker）：`nav_sim_ws/QUICKSTART.md`
+- 实机导航快速启动：`nav_real_ws/QUICKSTART.md`
 - 控制工作空间文档：`control_ws/README.md`
