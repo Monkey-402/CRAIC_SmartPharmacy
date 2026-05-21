@@ -16,8 +16,12 @@
   <param name="robot_description" textfile="$(find car_simple)/urdf/car_simple.urdf" />
     
   <!-- 在 Gazebo 中生成机器人模型 -->
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
+  <!-- <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
         args="-urdf -model car_simple -param robot_description -x 1.74 -y 1.74 -z 0.1 -Y 3.14"
+        respawn="false" output="screen" /> -->
+        
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
+        args="-urdf -model car_simple -param robot_description -x 0.530 -y -1.985 -z 0.1 -Y 0.078"
         respawn="false" output="screen" />
   
   <!-- 发布机器人状态 TF -->
