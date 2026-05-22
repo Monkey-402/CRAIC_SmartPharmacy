@@ -53,9 +53,9 @@ import math
 #
 # Example home point:
 #   {1.210, 3.725, -3.062, "home"}
-MAP_X = 1.210
-MAP_Y = 3.725
-MAP_YAW = -3.062
+MAP_X = 1.463
+MAP_Y = 3.840
+MAP_YAW = -3.14
 GOAL_NAME = "home"
 
 

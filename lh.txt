@@ -8,23 +8,23 @@ home：
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 1.210, y: 3.725, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: -0.999208, w: 0.039786}"
+  position: {x: 1.463, y: 3.840, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -1.000000, w: 0.000796}"
 
 
 board1_scan:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 0.683, y: 3.692, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: -0.999823, w: 0.018795}"
+  position: {x: 0.680, y: 3.840, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -1.000000, w: 0.000796}"
 
 
 A:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 0.820, y: 0.973, z: 0.0}
+  position: {x: 0.865, y: 1.022, z: 0.0}
   orientation: {x: 0.0, y: 0.0, z: -0.706825, w: 0.707388}"
 
 
@@ -33,47 +33,47 @@ rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
   position: {x: 0.001, y: 0.499, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: -0.743975, w: 0.668207}"
+  orientation: {x: 0.0, y: 0.0, z: -0.706825, w: 0.707388}"
 
 
 C:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 0.043, y: 1.501, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: -0.748634, w: 0.662983}"
+  position: {x: 0.001, y: 1.526, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: -0.706825, w: 0.707388}"
 
 
 board2_scan:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 2.265, y: 0.202, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: -0.023998, w: 0.999712}"
+  position: {x: 2.284, y: -0.260, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.000000, w: 1.000000}"
 
 
 1:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 3.407, y: 1.470, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: 0.741297, w: 0.671178}"
+  position: {x: 3.415, y: 1.435, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
 
 2:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 2.675, y: 2.089, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: 0.589145, w: 0.808028}"
+  position: {x: 2.540, y: 2.035, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
 
 3:
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 3.382, y: 2.515, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: 0.739953, w: 0.672659}"
+  position: {x: 3.415, y: 2.515, z: 0.0}
+  orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
 
 4:
@@ -81,7 +81,7 @@ rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
   position: {x: 2.602, y: 3.030, z: 0.0}
-  orientation: {x: 0.0, y: 0.0, z: 0.697211, w: 0.716866}"
+  orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
 验证点
 rosrun tf tf_echo map base_link

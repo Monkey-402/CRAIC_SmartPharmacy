@@ -35,6 +35,7 @@ Board2Decode.srv：
 *   string image_path  #图片路径
 */
 
+// 别名
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 enum VisionTask {
@@ -54,8 +55,8 @@ struct Board1Result {
     bool has_a = false;
     bool has_b = false;
     bool has_c = false;
-    int delivery_slot = 1;
-    int sample_count = 0;
+    int delivery_slot = 1;// deliver_1 到 deliver_4
+    int sample_count = 0;// 样本数量
 };
 
 struct Board2Result {
@@ -64,25 +65,26 @@ struct Board2Result {
     std::string speech_text;
 };
 
+// 任务点
 const std::vector<GoalTask> GOAL_LIST = {
-    {1.210, 3.725, -3.062, "home"},
-    {0.683, 3.692, -3.104, "board1_scan"},
-    {0.820, 0.973, -1.57, "pickup_A"},
-    {0.001, 0.499, -1.678, "pickup_B"},
-    {0.043, 1.501, -1.692, "pickup_C"},
-    {2.265, 0.202, -0.048, "board2_scan"},
-    {3.407, 1.470, 1.670, "deliver_1"},
-    {2.675, 2.089, 1.260, "deliver_2"},
-    {3.382, 2.515, 1.666, "deliver_3"},
-    {2.602, 3.030, 1.543, "deliver_4"}
+    {1.463, 3.840, -3.14, "home"},
+    {0.680, 3.840, -3.14, "board1_scan"},
+    {0.865, 1.022, -1.57, "pickup_A"},
+    {0.001, 0.499, -1.57, "pickup_B"},
+    {0.001, 1.526, -1.57, "pickup_C"},
+    {2.284, -0.260, 0, "board2_scan"},
+    {3.415, 1.435, 1.57, "deliver_1"},
+    {2.540, 2.035, 1.57, "deliver_2"},
+    {3.415, 2.515, 1.57, "deliver_3"},
+    {2.602, 3.030, 1.57, "deliver_4"}
 };
 
 ros::Publisher g_audio_play_pub;
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
 
-static std::atomic<int> g_img_idx(0);
-static std::atomic<int> g_active_task(NoVisionTask);
+static std::atomic<int> g_img_idx(0);// 图像序号计数器
+static std::atomic<int> g_active_task(NoVisionTask);// 视觉服务开关
 
 bool g_use_mock_data = false;
 bool g_mock_navigation = false;
@@ -273,7 +275,7 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     return true;
 }
 
-// 按业务点名称查找导航点，例如 board1_scan 或 pickup_A。
+// 按任务点名称查找导航点，例如 board1_scan 或 pickup_A。
 const GoalTask* findGoalByName(const std::string& name) {
     for (const GoalTask& goal : GOAL_LIST) {
         if (goal.name == name) {
@@ -380,11 +382,11 @@ bool runOneQrMission(MoveBaseClient& move_client) {
              board1_result.sample_count);
 
     std::vector<std::string> pickup_route;
+    if (board1_result.has_c) {
+        pickup_route.push_back("pickup_c");
+    }
     if (board1_result.has_a) {
         pickup_route.push_back("pickup_A");
-    }
-    if (board1_result.has_c) {
-        pickup_route.push_back("pickup_C");
     }
     if (board1_result.has_b) {
         pickup_route.push_back("pickup_B");
