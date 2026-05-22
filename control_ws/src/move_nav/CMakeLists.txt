@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(move_nav)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -21,7 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   license_plate_ocr
 )
 
-find_package(OpenCV 4 REQUIRED)   # 或 3 也行
+find_package(OpenCV REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -65,10 +65,11 @@ add_message_files(
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   ObjectDetection.srv
-# )
+add_service_files(
+  FILES
+  Board1Decode.srv
+  Board2Decode.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -151,6 +152,7 @@ include_directories(
 # add_executable(move2point src/move2point.cpp)
 add_executable(control_node src/control_node.cpp)
 add_executable(yaofang_control_msg_node src/control_node_yaofang_msg_template.cpp)
+add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
 # add_executable(takePhoto src/takePhoto.cpp)
 
 ## Rename C++ executable without prefix
@@ -165,6 +167,7 @@ add_executable(yaofang_control_msg_node src/control_node_yaofang_msg_template.cp
 # add_dependencies(move2point ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(yaofang_control_msg_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(yaofang_control_service_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(takePhoto ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Specify libraries to link a library or executable target against
@@ -175,6 +178,10 @@ target_link_libraries(control_node
   ${catkin_LIBRARIES}
 )
 target_link_libraries(yaofang_control_msg_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+target_link_libraries(yaofang_control_service_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )

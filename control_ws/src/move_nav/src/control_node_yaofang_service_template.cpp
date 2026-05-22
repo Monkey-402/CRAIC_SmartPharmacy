@@ -206,6 +206,7 @@ void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
                     g_service_ok = false;
                     break;
                 }
+        }
     } catch (const cv_bridge::Exception& e) {
         ROS_ERROR("cv_bridge 异常：%s", e.what());
         g_service_ok = false;
@@ -383,7 +384,7 @@ bool runOneQrMission(MoveBaseClient& move_client) {
 
     std::vector<std::string> pickup_route;
     if (board1_result.has_c) {
-        pickup_route.push_back("pickup_c");
+        pickup_route.push_back("pickup_C");
     }
     if (board1_result.has_a) {
         pickup_route.push_back("pickup_A");
@@ -503,9 +504,9 @@ int main(int argc, char* argv[]) {
 
     std::string board1_service = "/yaofang_vision/board1_decode";
     std::string board2_service = "/yaofang_vision/board2_decode";
-    pnh.param("use_mock_data", g_use_mock_data, false);
-    pnh.param("mock_navigation", g_mock_navigation, false);
-    pnh.param("max_rounds", g_max_rounds, 0);
+    pnh.param("use_mock_data", g_use_mock_data, g_use_mock_data);
+    pnh.param("mock_navigation", g_mock_navigation, g_mock_navigation);
+    pnh.param("max_rounds", g_max_rounds, g_max_rounds);
     pnh.param("board1_detection_service", board1_service, board1_service);
     pnh.param("board2_detection_service", board2_service, board2_service);
 

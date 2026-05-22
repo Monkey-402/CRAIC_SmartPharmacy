@@ -1,9 +1,22 @@
 1. 启动仿真环境：
-
 cd CRAIC_SmartPharmacy/nav_sim_ws
+catkin_make
 source ./devel/setup.bash
 roslaunch car_sim nav_sim.launch
 
+2. 启动仿真控制：
+cd /home/yu/CRAIC_SmartPharmacy/control_ws
+catkin_make
+source ./devel/setup.bash
+roslaunch move_nav yaofang_service_mock.launch
+
+3. 启动实际控制：
+cd /home/yu/CRAIC_SmartPharmacy/control_ws
+catkin_make
+source ./devel/setup.bash
+roslaunch move_nav control.launch
+
+4. 命令控制仿真前往任务点
 home：
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
@@ -83,5 +96,10 @@ pose:
   position: {x: 2.602, y: 3.030, z: 0.0}
   orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
-验证点
+5. 命令提取仿真位置
 rosrun tf tf_echo map base_link
+
+6. 修改小车仿真起始位置
+CRAIC_SmartPharmacy/nav_sim_ws/tools/map_to_gazebo_pose.py
+修改文件中前面的任务点位置
+根据运行结果修改相关的文件参数

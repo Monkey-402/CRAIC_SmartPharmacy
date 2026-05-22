@@ -1,32 +1,6 @@
 <launch>
-  <!-- 1. YOLO-ONNX 检测服务 -->
-  <node name="yolo_onnx_service_node"
-        pkg="yolo_onnx_ros"
-        type="yolo_onnx_service_node.py"
-        output="screen">
-    <param name="model_path"
-           value="$(find yolo_onnx_ros)/models/best.onnx" />
-    <param name="input_topic"
-           value="/camera/image_raw" />
-    <param name="conf_threshold" value="0.8" />
-    <param name="iou_threshold"  value="0.4" />
-  </node>
-
-  <!-- 2. 车牌 OCR 服务 -->
-  <node name="license_plate_ocr_server"
-        pkg="license_plate_ocr"
-        type="license_plate_server.py"
-        output="screen">
-    <param name="model_path"
-           value="$(find license_plate_ocr)/models/best.onnx" />
-    <param name="conf_thres" value="0.4" />
-    <param name="iou_thres"  value="0.5" />
-  </node>
-
-  <!-- 3. 自定义 C++ 控制节点 -->
-  <node name="control_node"
+  <node name="yaofang_control_service_node"
         pkg="move_nav"
-        type="control_node"
-        output="screen">
-  </node>
+        type="yaofang_control_service_node"
+        output="screen" />
 </launch>
