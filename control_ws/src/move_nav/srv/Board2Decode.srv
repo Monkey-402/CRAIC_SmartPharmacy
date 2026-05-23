@@ -1,0 +1,5 @@
+string image_path
+---
+bool lab_open
+int32 wait_seconds
+string speech_text

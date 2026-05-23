@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(move_nav)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -21,7 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   license_plate_ocr
 )
 
-find_package(OpenCV 4 REQUIRED)   # 或 3 也行
+find_package(OpenCV REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -57,17 +57,19 @@ find_package(OpenCV 4 REQUIRED)   # 或 3 也行
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  SampleOrder.msg
+  TaskRequest.msg
+  TaskResult.msg
+)
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   ObjectDetection.srv
-# )
+add_service_files(
+  FILES
+  Board1Decode.srv
+  Board2Decode.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -116,7 +118,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES move_nav
- CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs move_base_msgs roscpp std_msgs cv_bridge sensor_msgs 
+ CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs move_base_msgs roscpp std_msgs cv_bridge sensor_msgs message_runtime
 #  DEPENDS system_lib
 )
 
@@ -149,6 +151,8 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/move_nav_node.cpp)
 # add_executable(move2point src/move2point.cpp)
 add_executable(control_node src/control_node.cpp)
+add_executable(yaofang_control_msg_node src/control_node_yaofang_msg_template.cpp)
+add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
 # add_executable(takePhoto src/takePhoto.cpp)
 
 ## Rename C++ executable without prefix
@@ -162,6 +166,8 @@ add_executable(control_node src/control_node.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(move2point ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(yaofang_control_msg_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(yaofang_control_service_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(takePhoto ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Specify libraries to link a library or executable target against
@@ -170,6 +176,14 @@ add_dependencies(control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPOR
 # )
 target_link_libraries(control_node 
   ${catkin_LIBRARIES}
+)
+target_link_libraries(yaofang_control_msg_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+target_link_libraries(yaofang_control_service_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )
 
 #############

@@ -35,6 +35,7 @@ struct GoalTask {
 
 // 预定义目标点列表 {x坐标, y坐标, 航向角(yaw), 到点触发任务类型}
 const std::vector<GoalTask> GOAL_LIST = {
+    //坐标暂不确定，可以虚构
     {3.38, 0.14, 1.57, NoTask},
     {3.44, 1.31, 3.14, NoTask},
     {2.62, 1.30, -1.57, People},
@@ -70,6 +71,7 @@ void publishTaskRequest(TaskType task_type, size_t goal_index, const std::string
 }
 
 void taskResultCB(const std_msgs::String::ConstPtr& msg) {
+    //视觉节点处理后的消息返回
     ROS_INFO("收到开发者实现节点返回结果: %s", msg->data.c_str());
 }
 
@@ -85,7 +87,10 @@ void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
 
         if (cv::imwrite(fname, cv_ptr->image)) {
             ROS_INFO("Save %s", fname.c_str());
+            //发布任务请求
             publishTaskRequest(pending_task, current_point - 1, fname);
+
+
         } else {
             ROS_ERROR("Fail to save %s", fname.c_str());
         }
@@ -121,6 +126,7 @@ void movetoPoint(move_base_msgs::MoveBaseGoal goal, MoveBaseClient &client)
     ROS_INFO("Point%zu reach!",current_point);
     ++current_point;
     ros::Duration(0.1).sleep();
+    
     // 到达特定目标点后触发任务（由开发者实现具体处理）
     const TaskType task = GOAL_LIST[current_point - 1].task_type;
     if (task != NoTask) {

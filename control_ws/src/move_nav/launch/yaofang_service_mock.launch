@@ -1,0 +1,18 @@
+<launch>
+  <arg name="use_mock_data" default="true" />
+  <arg name="mock_navigation" default="false" />
+  <arg name="max_rounds" default="1" />
+  <arg name="board1_detection_service" default="/yaofang_vision/board1_decode" />
+  <arg name="board2_detection_service" default="/yaofang_vision/board2_decode" />
+
+  <node name="yaofang_control_service_node"
+        pkg="move_nav"
+        type="yaofang_control_service_node"
+        output="screen">
+    <param name="use_mock_data" value="$(arg use_mock_data)" />
+    <param name="mock_navigation" value="$(arg mock_navigation)" />
+    <param name="max_rounds" value="$(arg max_rounds)" />
+    <param name="board1_detection_service" value="$(arg board1_detection_service)" />
+    <param name="board2_detection_service" value="$(arg board2_detection_service)" />
+  </node>
+</launch>
