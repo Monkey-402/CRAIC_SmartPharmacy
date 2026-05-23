@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(move_nav)
+project(text_recognition)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,20 +8,12 @@ project(move_nav)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  actionlib
-  actionlib_msgs
-  geometry_msgs
-  move_base_msgs
-  roscpp
-  std_msgs
   cv_bridge
+  rospy
   sensor_msgs
   message_generation
-  yolo_onnx_ros
-  license_plate_ocr
+  std_msgs
 )
-
-find_package(OpenCV 3 REQUIRED)   # 或 3 也行
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -56,12 +48,18 @@ find_package(OpenCV 3 REQUIRED)   # 或 3 也行
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
+## Generate messages in the 'msg' folder
+# add_message_files(
+#   FILES
+#   Message1.msg
+#   Message2.msg
+# )
+
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  Board1Decode.srv
-  Board2Decode.srv
-)
+ add_service_files(
+   FILES
+   RecognizeText.srv
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -71,12 +69,11 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  sensor_msgs
-  # actionlib_msgs#   geometry_msgs#   move_base_msgs#   std_msgs
-)
+ generate_messages(
+   DEPENDENCIES
+   sensor_msgs
+   std_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -109,8 +106,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES move_nav
- CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs move_base_msgs roscpp std_msgs cv_bridge sensor_msgs message_runtime
+#  LIBRARIES text_recognition
+  CATKIN_DEPENDS cv_bridge rospy sensor_msgs std_msgs message_runtime
 #  DEPENDS system_lib
 )
 
@@ -121,15 +118,13 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
+# include
   ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_BINARY_DIR}/devel/include
 )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/move_nav.cpp
+#   src/${PROJECT_NAME}/text_recognition.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -140,13 +135,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/move_nav_node.cpp)
-# add_executable(move2point src/move2point.cpp)
-add_executable(control_node src/control_node.cpp)
-add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
-set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD 11)
-set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD_REQUIRED ON)
-# add_executable(takePhoto src/takePhoto.cpp)
+# add_executable(${PROJECT_NAME}_node src/text_recognition_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -157,22 +146,11 @@ set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD_REQUIRED 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-# add_dependencies(move2point ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(yaofang_control_service_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-# add_dependencies(takePhoto ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-# Specify libraries to link a library or executable target against
-# target_link_libraries(move2point 
+## Specify libraries to link a library or executable target against
+# target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(control_node 
-  ${catkin_LIBRARIES}
-)
-target_link_libraries(yaofang_control_service_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-)
 
 #############
 ## Install ##
@@ -221,7 +199,7 @@ target_link_libraries(yaofang_control_service_node
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_move_nav.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_text_recognition.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

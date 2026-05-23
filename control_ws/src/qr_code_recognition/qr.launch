@@ -1,0 +1,11 @@
+<launch>
+  <arg name="board1_decode_service" default="/yaofang_vision/board1_decode" />
+
+  <node
+      pkg="qr_code_recognition"
+      type="qr_node.py"
+      name="qr_node"
+      output="screen">
+    <param name="board1_decode_service" value="$(arg board1_decode_service)" />
+  </node>
+</launch>
