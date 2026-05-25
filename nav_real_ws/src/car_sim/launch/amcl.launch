@@ -2,21 +2,20 @@
   <!-- AMCL自适应蒙特卡洛定位节点 -->
     <node pkg="amcl" type="amcl" name="amcl" output="screen">    <!-- 基础参数配置 -->
 
-    <!-- 里程计模型类型："omni"表示全向运动模型（适合任意方向移动的机器人） -->
-    <param name="odom_model_type" value="omni"/>
+    <!-- 里程计模型类型："diff" 差速/阿克曼底盘 -->
+    <param name="odom_model_type" value="diff"/>
     
-    <!-- 里程计噪声参数（alpha1-5） -->
+    <!-- 里程计噪声参数（alpha1-4，diff 模型） -->
     <param name="odom_alpha1" value="0.1"/>  <!-- 旋转引起的旋转噪声 -->
     <param name="odom_alpha2" value="0.1"/>  <!-- 平移引起的旋转噪声 -->
     <param name="odom_alpha3" value="0.1"/>  <!-- 平移引起的平移噪声 -->
     <param name="odom_alpha4" value="0.1"/>  <!-- 旋转引起的平移噪声 -->
-    <param name="odom_alpha5" value="0.1"/>  <!-- 全向模型特有：横向运动噪声 -->
     
     <!-- 可视化参数 -->
     <param name="gui_publish_rate" value="10.0"/> <!-- RViz可视化发布频率(Hz) -->
     
     <!-- 激光雷达参数 -->
-    <param name="laser_max_beams" value="30"/>    <!-- 每次处理的最大激光束数量 -->
+    <param name="laser_max_beams" value="18"/>    <!-- 实车减负：原30，降低激光束采样数 -->
     <param name="laser_model_type" value="likelihood_field"/> <!-- 使用似然场模型 -->
     <param name="laser_likelihood_max_dist" value="2.0"/> <!-- 似然场最大有效距离(m) -->
     
@@ -30,7 +29,7 @@
     
     <!-- 粒子滤波器参数 -->
     <param name="min_particles" value="500"/>    <!-- 最小粒子数量 -->
-    <param name="max_particles" value="3000"/>   <!-- 最大粒子数量 -->
+    <param name="max_particles" value="1200"/>   <!-- 实车减负：原3000 -->
     <param name="kld_err" value="0.05"/>         <!-- KLD采样误差上限 -->
     <param name="kld_z" value="0.99"/>           <!-- KLD的标准正态分位数 -->
     
@@ -39,6 +38,7 @@
     <param name="update_min_a" value="0.1"/>     <!-- 最小旋转角度触发更新(rad) -->
     
     <!-- 坐标系设置 -->
+    <remap from="scan" to="/scan_filtered"/>
     <!-- <remap from="odom" to="/odometry/filtered"/> 修改odom话题映射 -->
     <param name="odom_frame_id" value="odom"/>   <!-- 里程计坐标系名称 -->
     <param name="base_frame_id" value="base_link"/><!-- 添加机器人基坐标系 -->
@@ -53,8 +53,12 @@
 
     <!-- <param name="initial_pose_x" value="1.74"/>
     <param name="initial_pose_y" value="1.74"/> -->
-    <param name="initial_pose_a" value="0"/>
     <!-- <param name="initial_pose_a" value="0"/> -->
+    <!-- <param name="initial_pose_a" value="0"/> -->
+
+    <param name="initial_pose_x" value="1.463"/>
+    <param name="initial_pose_y" value="3.840"/>
+    <param name="initial_pose_a" value="-3.14"/>
 
   </node>
 </launch>

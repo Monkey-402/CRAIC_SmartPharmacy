@@ -1,11 +1,11 @@
 <launch>
-  <!-- 一键：话题桥接 + 实机导航（无 Gazebo） -->
+  <!-- 兼容入口：默认 AMCL + remap。Hector 请用 nav_real_hector_with_remap.launch -->
+
   <arg name="map" default="map_sim.yaml"/>
   <arg name="no_rviz" default="false"/>
   <arg name="use_sim_time" default="false"/>
 
-  <include file="$(find topic_remap_ros)/launch/topic_remap_default.launch"/>
-  <include file="$(find car_sim)/launch/nav_real.launch">
+  <include file="$(find car_sim)/launch/nav_real_amcl_with_remap.launch">
     <arg name="map" value="$(arg map)"/>
     <arg name="no_rviz" value="$(arg no_rviz)"/>
     <arg name="use_sim_time" value="$(arg use_sim_time)"/>

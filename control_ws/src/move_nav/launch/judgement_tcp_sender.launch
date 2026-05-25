@@ -1,0 +1,18 @@
+<launch>
+  <!-- 裁判软件 IP/端口，赛前按现场公布值修改 -->
+  <arg name="server_ip" default="192.168.1.100" />
+  <arg name="server_port" default="8888" />
+  <!-- 规则要求 1-2 Hz -->
+  <arg name="send_rate" default="1.5" />
+  <arg name="input_topic" default="/judgement/report" />
+
+  <node name="judgement_tcp_sender"
+        pkg="move_nav"
+        type="judgement_tcp_sender.py"
+        output="screen">
+    <param name="server_ip" value="$(arg server_ip)" />
+    <param name="server_port" value="$(arg server_port)" />
+    <param name="send_rate" value="$(arg send_rate)" />
+    <param name="input_topic" value="$(arg input_topic)" />
+  </node>
+</launch>

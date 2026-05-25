@@ -13,7 +13,7 @@ roslaunch eprobot_chassis_bringup chassis.launch
 
 ## 与 `nav_real_ws` 联调
 
-底盘在本机起好后，再在同一 ROS master 上启动 `nav_real_ws` 的 `topic_remap_ros` 与 `nav_real.launch`（或 `nav_real_with_remap.launch`）。
+底盘在本机起好后，再在同一 ROS master 上启动 `nav_real_ws` 的 `nav_real_hector.launch` 或 `nav_real_amcl.launch`（激光直接用 `/scan_filtered`；相机 remap 可选 `*_with_remap.launch`）。
 
 ## Catkin 工作空间
 

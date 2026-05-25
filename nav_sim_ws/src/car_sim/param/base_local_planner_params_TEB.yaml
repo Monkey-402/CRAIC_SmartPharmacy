@@ -1,48 +1,83 @@
 TebLocalPlannerROS:
 
-  # 阿克曼小车常见参数（差速/全向参数需关闭横向速度）
+  # EPRobot V2 阿克曼底盘, F1比赛参数
   odom_topic: odom
   map_frame: map
 
-  # 运动学约束
+  # ====== 运动学约束 ======
+  # 最大前向速度 (m/s)。EPRobot手册标称 1.2m/s。
   max_vel_x: 1.0
+  # 最大后退速度 (m/s)。
   max_vel_x_backwards: 0.3
+  # 最大横向速度 (m/s)。阿克曼底盘不能横向移动，设为0。
   max_vel_y: 0.0
+  # 最大角速度 (rad/s)。
   max_vel_theta: 0.8
+  # 最大线加速度 (m/s^2)。
   acc_lim_x: 0.8
   acc_lim_y: 0.0
+  # 最大角加速度 (rad/s^2)。
   acc_lim_theta: 0.8
+  # 最小转弯半径 (m)。阿克曼底盘不能原地转向，受前轮最大转角限制。
   min_turning_radius: 0.35
+  # 前后轮轴距 (m)。
   wheelbase: 0.20
+  # false: 使用角速度指令; true: 使用转向角指令。
   cmd_angle_instead_rotvel: false
 
-  # 轨迹时间离散
+  # ====== 轨迹生成 ======
+  # 自动调整轨迹时间长度。
   teb_autosize: true
+  # 轨迹点之间的参考时间间隔 (s)。
   dt_ref: 0.3
   dt_hysteresis: 0.1
+  # 最少轨迹采样点数。
   min_samples: 3
+  # 用全局路径的方向覆盖局部目标方向。
   global_plan_overwrite_orientation: true
-  allow_init_with_backwards_motion: false
+  # 允许在必要时倒退，但配合 weight_kinematics_forward_drive 不会一味倒车。
+  allow_init_with_backwards_motion: true
 
-  # 目标容差
+  # ====== 目标容差 ======
+  # 到达目标的位置容差 (m)。到达该范围内即认为已到达。
   xy_goal_tolerance: 0.2
+  # 到达目标的角度容差 (rad)。到达该范围内即认为已对准。
   yaw_goal_tolerance: 0.35
+  # true: 到达目标时不强制减速到0。
   free_goal_vel: false
 
-  # 障碍物与优化权重
+  # ====== 机器人外形 ======
+  # 与costmap_common_params.yaml保持一致: EPRobot V2, 0.27m x 0.21m
+  footprint_model:
+    type: "polygon"
+    vertices: [[-0.135, -0.105], [-0.135, 0.105], [0.135, 0.105], [0.135, -0.105]]
+
+  # ====== 避障参数 (teb调整-F1参数.txt) ======
+  # 轨迹点与障碍物的最小允许距离 (m)。增大让机器人离墙更远。
   min_obstacle_dist: 0.07
+  # 障碍物代价膨胀距离 (m)，与costmap中的inflation_radius协同作用。
   inflation_dist: 0.10
+  # 是否引入costmap中的障碍物代价。
   include_costmap_obstacles: true
+  # 机器人后方考虑costmap障碍物的距离 (m)。
   costmap_obstacles_behind_robot_dist: 1.0
+  # 每次优化考虑的最远障碍物数量。
   obstacle_poses_affected: 15
+
+
+  # ====== 优化权重 ======
+  # 内层优化迭代次数。
   no_inner_iterations: 5
+  # 外层优化迭代次数。
   no_outer_iterations: 4
+  # 最短时间权重。降低此值让路径更平滑而非最短时间；增大则优先追求速度。
+  # 来源: teb调整-F1参数.txt
   weight_optimaltime: 10.0
   weight_max_vel_x: 2.0
   weight_max_vel_theta: 1.0
   weight_acc_lim_x: 1.0
   weight_acc_lim_theta: 1.0
   weight_kinematics_nh: 1000.0
-  weight_kinematics_forward_drive: 50.0
+  weight_kinematics_forward_drive: 15.0
   weight_kinematics_turning_radius: 100.0
   weight_obstacle: 50.0

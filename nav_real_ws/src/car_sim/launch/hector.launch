@@ -47,8 +47,8 @@
 
 
     <!-- ############################# 激光参数 ############################# -->
-    <!-- 激光话题名称 (必须与激光雷达发布的话题一致) -->
-    <remap from="scan" to="/scan" />
+    <!-- 实车 laser_filter 输出；勿订 /scan（与 lslidar 原始话题冲突） -->
+    <remap from="scan" to="/scan_filtered" />
     
     <!-- 激光最大/最小有效距离 (米) -->
     <param name="laser_min_dist" value="0.1" />
