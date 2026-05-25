@@ -113,6 +113,37 @@ Board2Result makeMockBoard2Result() {
     return result;
 }
 
+int countBoard1Samples(const Board1Result& result) {
+    return static_cast<int>(result.has_a) +
+           static_cast<int>(result.has_b) +
+           static_cast<int>(result.has_c);
+}
+
+bool normalizeBoard1Result(Board1Result* result) {
+    if (result == nullptr) {
+        return false;
+    }
+
+    const int sample_count = countBoard1Samples(*result);
+    if (sample_count == 0) {
+        ROS_WARN("二维码识别结果无 A/B/C 样本");
+        return false;
+    }
+
+    if (result->delivery_slot < 1 || result->delivery_slot > 4) {
+        ROS_ERROR("二维码识别返回的 delivery_slot 无效：%d", result->delivery_slot);
+        return false;
+    }
+
+    if (result->sample_count != sample_count) {
+        ROS_WARN("二维码识别 sample_count=%d 与 A/B/C 数量=%d 不一致，使用 A/B/C 数量",
+                 result->sample_count, sample_count);
+        result->sample_count = sample_count;
+    }
+
+    return true;
+}
+
 // 将音频文件路径发布到语音播放话题。
 void playAudioFile(const std::string& audio_file) {
     if (audio_file.empty()) {
@@ -126,19 +157,19 @@ void playAudioFile(const std::string& audio_file) {
     ROS_INFO("播放音频文件：%s", audio_file.c_str());
 }
 
-// 将保存后的图片路径发给识别板一服务，并直接接收结构化识别结果。
+// 将保存后的图片路径发给二维码识别服务，并接收 Board1Decode 结构化结果。
 bool callBoard1Service(const std::string& image_path) {
     if (!g_board1_client.waitForExistence(ros::Duration(5.0))) {
-        ROS_ERROR("识别板一视觉服务不可用");
+        ROS_ERROR("二维码识别服务不可用");
         return false;
     }
 
     move_nav::Board1Decode srv;
     srv.request.image_path = image_path;
 
-    ROS_INFO("调用识别板一视觉服务：image_path=%s", image_path.c_str());
+    ROS_INFO("调用二维码识别服务：image_path=%s", image_path.c_str());
     if (!g_board1_client.call(srv)) {
-        ROS_ERROR("调用识别板一视觉服务失败");
+        ROS_ERROR("调用二维码识别服务失败");
         return false;
     }
 
@@ -148,7 +179,14 @@ bool callBoard1Service(const std::string& image_path) {
     g_board1_result.delivery_slot = srv.response.delivery_slot;
     g_board1_result.sample_count = srv.response.sample_count;
 
-    return true;
+    ROS_INFO("二维码识别服务返回：A=%d，B=%d，C=%d，delivery_slot=%d，sample_count=%d",
+             g_board1_result.has_a,
+             g_board1_result.has_b,
+             g_board1_result.has_c,
+             g_board1_result.delivery_slot,
+             g_board1_result.sample_count);
+
+    return normalizeBoard1Result(&g_board1_result);
 }
 
 // 将保存后的图片路径发给识别板二服务，并直接接收化验区状态结果。
@@ -282,11 +320,12 @@ const GoalTask* findGoalByName(const std::string& name) {
     return nullptr;
 }
 
-// 请求识别板一识别，并等待直接服务调用返回结果。
+// 请求识别板一截图，并在 snapshotCB 中调用二维码识别服务返回结果。
 bool requestBoard1Vision(double timeout_sec, Board1Result* result) {
     if (g_use_mock_data) {
         if (result != nullptr) {
             *result = makeMockBoard1Result();
+            normalizeBoard1Result(result);
         }
         ROS_INFO("[模拟数据] 使用识别板一假结果");
         return true;
@@ -361,13 +400,7 @@ bool runOneQrMission(MoveBaseClient& move_client) {
 
     Board1Result board1_result;
     if (!requestBoard1Vision(15.0, &board1_result)) {
-        ROS_ERROR("识别板一识别失败");
-        return false;
-    }
-    board1_result.delivery_slot = std::max(1, std::min(4, board1_result.delivery_slot));
-
-    if (!board1_result.has_a && !board1_result.has_b && !board1_result.has_c) {
-        ROS_WARN("识别板一没有返回任何 A/B/C 取样窗口");
+        ROS_ERROR("识别板一二维码识别失败");
         return false;
     }
 
@@ -512,6 +545,15 @@ int main(int argc, char* argv[]) {
              g_use_mock_data, g_mock_navigation, g_max_rounds);
     ROS_INFO("视觉服务：board1=%s，board2=%s",
              board1_service.c_str(), board2_service.c_str());
+
+    if (!g_use_mock_data) {
+        ROS_INFO("等待二维码识别服务：%s", board1_service.c_str());
+        if (!g_board1_client.waitForExistence(ros::Duration(10.0))) {
+            ROS_ERROR("二维码识别服务未就绪，主程序停止：%s", board1_service.c_str());
+            return 1;
+        }
+        ROS_INFO("二维码识别服务已连接");
+    }
 
     if (!g_mock_navigation) {
         ROS_INFO("等待 move_base action server...");
