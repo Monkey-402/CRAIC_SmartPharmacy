@@ -17,8 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   sensor_msgs
   message_generation
-  yolo_onnx_ros
-  license_plate_ocr
 )
 
 find_package(OpenCV REQUIRED)
@@ -62,6 +60,7 @@ add_message_files(
   SampleOrder.msg
   TaskRequest.msg
   TaskResult.msg
+  JudgementReport.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -195,10 +194,11 @@ target_link_libraries(yaofang_control_service_node
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  scripts/judgement_tcp_sender.py
+  scripts/car_tcp_bridge.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

@@ -7,7 +7,9 @@
 | 输入（实车常见） | 输出（craic 常见） |
 |------------------|-------------------|
 | `/camera/rgb/image_raw` | `/camera/image_raw` |
-| `/scan_filtered` | `/scan`（`frame_id` 可改为 `laser_link` 以匹配 `car_sim` 代价地图） |
+
+激光 scan **不再经本包转发**：`nav_real_ws` 的 Hector / AMCL / costmap 已直接订阅 `/scan_filtered`（`frame_id: base_laser_link`）。  
+若需恢复 scan 转发，在 launch 里设 `relay_scan:=true`（不推荐，易与 lslidar 的 `/scan` 冲突）。
 
 ## 使用
 
@@ -19,8 +21,8 @@ roslaunch topic_remap_ros topic_remap_default.launch
 
 ## 与 `nav_real` 联调顺序建议
 
-1. 实车启动底盘与传感器（含 `scan`、`odom`、`TF`）
-2. `roslaunch topic_remap_ros topic_remap_default.launch`
-3. `roslaunch car_sim nav_real.launch`
+1. 实车启动底盘与传感器（含 `/scan` → `laser_filter` → `/scan_filtered`、`odom`、`TF`）
+2. `roslaunch car_sim nav_real_amcl.launch` 或 `nav_real_hector.launch`
+3. 若需相机话题对齐：`nav_real_*_with_remap.launch`（仅转发相机，不碰 scan）
 
-若实车已直接发布 `/scan` 且 `frame_id` 已是 `laser_link`，可将 `relay_scan` 设为 `false`。
+`*_with_remap.launch` 内含 `topic_remap_default.launch`；默认 `relay_scan=false`。

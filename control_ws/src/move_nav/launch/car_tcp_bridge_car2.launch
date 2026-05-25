@@ -1,0 +1,8 @@
+<launch>
+  <!-- 2 号车：作为 TCP 客户端，peer_ip 填 1 号车 IP -->
+  <include file="$(find move_nav)/launch/car_tcp_bridge.launch">
+    <arg name="role" value="client" />
+    <arg name="peer_ip" value="192.168.1.101" />
+    <arg name="port" value="9000" />
+  </include>
+</launch>

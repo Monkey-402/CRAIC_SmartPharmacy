@@ -1,0 +1,12 @@
+<launch>
+  <!-- 相机 topic_remap + 实机 Hector 导航（scan 已直接订 /scan_filtered，relay_scan 默认 false） -->
+
+  <arg name="no_rviz" default="false"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <include file="$(find topic_remap_ros)/launch/topic_remap_default.launch"/>
+  <include file="$(find car_sim)/launch/nav_real_hector.launch">
+    <arg name="no_rviz" value="$(arg no_rviz)"/>
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+  </include>
+</launch>

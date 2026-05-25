@@ -1,0 +1,14 @@
+<launch>
+  <!-- 话题桥接 + 实机 AMCL 导航 -->
+
+  <arg name="map" default="map_sim.yaml"/>
+  <arg name="no_rviz" default="false"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <include file="$(find topic_remap_ros)/launch/topic_remap_default.launch"/>
+  <include file="$(find car_sim)/launch/nav_real_amcl.launch">
+    <arg name="map" value="$(arg map)"/>
+    <arg name="no_rviz" value="$(arg no_rviz)"/>
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+  </include>
+</launch>
