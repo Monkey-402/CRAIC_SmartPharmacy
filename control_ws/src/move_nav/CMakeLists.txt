@@ -196,6 +196,7 @@ target_link_libraries(yaofang_control_service_node
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   scripts/judgement_tcp_sender.py
+  scripts/car_tcp_bridge.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
