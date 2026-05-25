@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>text_recognition</name>
+  <version>0.0.0</version>
+  <description>OCR service for the yaofang board2 workflow.</description>
+
+  <maintainer email="ncut@todo.todo">ncut</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>move_nav</depend>
+  <depend>rospy</depend>
+</package>

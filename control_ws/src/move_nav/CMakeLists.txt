@@ -56,14 +56,6 @@ find_package(OpenCV REQUIRED)
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
-## Generate messages in the 'msg' folder
-add_message_files(
-  FILES
-  SampleOrder.msg
-  TaskRequest.msg
-  TaskResult.msg
-)
-
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
@@ -151,8 +143,14 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/move_nav_node.cpp)
 # add_executable(move2point src/move2point.cpp)
 add_executable(control_node src/control_node.cpp)
+<<<<<<< HEAD
 add_executable(yaofang_control_msg_node src/control_node_yaofang_msg_template.cpp)
 add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
+=======
+add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
+set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD 11)
+set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD_REQUIRED ON)
+>>>>>>> upstream/feat/control_node
 # add_executable(takePhoto src/takePhoto.cpp)
 
 ## Rename C++ executable without prefix
@@ -166,7 +164,10 @@ add_executable(yaofang_control_service_node src/control_node_yaofang_service_tem
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(move2point ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+<<<<<<< HEAD
 add_dependencies(yaofang_control_msg_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+=======
+>>>>>>> upstream/feat/control_node
 add_dependencies(yaofang_control_service_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(takePhoto ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -177,7 +178,7 @@ add_dependencies(yaofang_control_service_node ${${PROJECT_NAME}_EXPORTED_TARGETS
 target_link_libraries(control_node 
   ${catkin_LIBRARIES}
 )
-target_link_libraries(yaofang_control_msg_node
+target_link_libraries(yaofang_control_service_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )

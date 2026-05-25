@@ -28,7 +28,6 @@ Board1Decode.srv：
 *   int32 delivery_slot   # 送达目标点 1=血常规，2=体液，3=免疫检测，4=激素检验
 *   int32 sample_count     #样本数量
 Board2Decode.srv：
-*   bool lab_open #是否空闲
 *   int32 wait_seconds #等待秒数
 *   string speech_text #识别文字
 发送：
@@ -60,7 +59,6 @@ struct Board1Result {
 };
 
 struct Board2Result {
-    bool lab_open = true;
     int wait_seconds = 0;
     std::string speech_text;
 };
@@ -110,7 +108,6 @@ Board1Result makeMockBoard1Result() {
 // 生成固定的识别板二模拟结果，方便视觉节点未完成时先调试导航流程。
 Board2Result makeMockBoard2Result() {
     Board2Result result;
-    result.lab_open = true;
     result.wait_seconds = 0;
     result.speech_text = "化验区空闲中，请快速通过";
     return result;
@@ -170,7 +167,6 @@ bool callBoard2Service(const std::string& image_path) {
         return false;
     }
 
-    g_board2_result.lab_open = srv.response.lab_open;
     g_board2_result.wait_seconds = srv.response.wait_seconds;
     g_board2_result.speech_text = srv.response.speech_text;
     return true;
@@ -439,7 +435,6 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     Board2Result board2_result;
     if (!requestBoard2Vision(15.0, &board2_result)) {
         ROS_WARN("识别板二视觉任务失败或超时，默认化验区空闲");
-        board2_result.lab_open = true;
         board2_result.wait_seconds = 0;
         board2_result.speech_text = "化验区空闲中，请快速通过";
     }
@@ -448,12 +443,8 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     //如果识别消息为空
     if (board2_result.speech_text.empty()) {
         board2_result.speech_text =
-            board2_result.lab_open ? "化验区空闲中，请快速通过"
-                                   : "化验区忙碌中，请等待";
-    }
-    //如果等待秒数小于0
-    if (!board2_result.lab_open && board2_result.wait_seconds <= 0) {
-        board2_result.wait_seconds = 5;
+            board2_result.wait_seconds > 0 ? "化验区忙碌中，请等待"
+                                           : "化验区空闲中，请快速通过";
     }
 
     ROS_INFO("识别板二播报：%s", board2_result.speech_text.c_str());
