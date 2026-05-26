@@ -60,6 +60,10 @@
   <exec_depend>xacro</exec_depend>
   <!-- nav_real_with_remap.launch 可选依赖 -->
   <exec_depend>topic_remap_ros</exec_depend>
+  <exec_depend>amcl</exec_depend>
+  <exec_depend>hector_mapping</exec_depend>
+  <exec_depend>move_base</exec_depend>
+  <exec_depend>map_server</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

@@ -1,15 +1,20 @@
-# 机器人几何参数: 使用实测长宽(0.35m x 0.20m)的矩形足迹
-# robot_radius: 0.35
-footprint: [[-0.175, -0.10], [-0.175, 0.10], [0.175, 0.10], [0.175, -0.10]]
+# 机器人外轮廓，按多边形顶点定义。规划器会在这些顶点周围保持安全距离，防止碰撞。
+# EPRobot V2 实测: 0.27m x 0.21m（比赛规则第1页）
+footprint: [[-0.135, -0.105], [-0.135, 0.105], [0.135, 0.105], [0.135, -0.105]]
 
-obstacle_range: 3.0 # 用于障碍物探测，比如: 值为 3.0，意味着检测到距离小于 3 米的障碍物时，就会引入代价地图
-raytrace_range: 3.5 # 用于清除障碍物，比如：值为 3.5，意味着清除代价地图中 3.5 米以外的障碍物
+# 传感器数据引入代价地图的最大距离（米）。超过此距离的障碍物被忽略。
+obstacle_range: 3.0
+# 传感器数据清除代价地图的最大距离（米）。超过此距离的已标记障碍物会被清除。
+raytrace_range: 3.5
 
-
-#膨胀半径，扩展在碰撞区域以外的代价区域，使得机器人规划路径避开障碍物
+# 障碍物膨胀半径（米）。在障碍物周围扩展一圈代价区域，使规划路径离障碍物更远。
+# 值越大机器人离墙越远，越安全但可能无法通过窄通道。
+# 来源: teb调整-F1参数.txt
 inflation_radius: 0.06
-#代价比例系数，越大则代价值越小
-cost_scaling_factor: 2
+# 代价衰减系数。值越大代价随距离衰减越快，机器人更贴近障碍物外侧行走；
+# 值越小代价衰减越平缓，机器人倾向于远离障碍物。
+# 来源: teb调整-F1参数.txt
+cost_scaling_factor: 15.0
 
 transform_tolerance: 0.2  # 允许 0.2s 的外推
 
@@ -18,5 +23,4 @@ map_type: costmap
 #导航包所需要的传感器
 observation_sources: scan
 #对传感器的坐标系和数据进行配置。这个也会用于代价地图添加和清除障碍物。例如，你可以用激光雷达传感器用于在代价地图添加障碍物，再添加kinect用于导航和清除障碍物。
-scan: {sensor_frame: laser_link, data_type: LaserScan, topic: /scan, marking: true, clearing: true}
-
+scan: {sensor_frame: base_laser_link, data_type: LaserScan, topic: /scan_filtered, marking: true, clearing: true}

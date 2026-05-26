@@ -1,0 +1,18 @@
+<launch>
+  <!-- 实机导航（Hector SLAM）：hector.launch + move_base，无需预加载地图。
+       依赖外部底盘已发布 TF、/scan_filtered、odom；激光直接用 laser_filter 输出。
+       相机话题对齐可选 nav_real_hector_with_remap.launch；勿与 hector_real.launch 同启。 -->
+
+  <arg name="use_sim_time" default="false"/>
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <arg name="no_rviz" default="false"/>
+
+  <include file="$(find car_sim)/launch/hector.launch"/>
+
+  <include file="$(find car_sim)/launch/move_base.launch"/>
+
+  <group unless="$(arg no_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find car_sim)/rviz/nav.rviz"/>
+  </group>
+</launch>
