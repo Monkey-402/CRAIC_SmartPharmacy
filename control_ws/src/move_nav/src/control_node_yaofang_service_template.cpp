@@ -78,6 +78,7 @@ const std::vector<GoalTask> GOAL_LIST = {
 ros::Publisher g_audio_play_pub;
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
+std::string g_audio_dir = "/home/EPRobot/audio/yaofang/";
 
 static std::atomic<int> g_img_idx(0);
 static std::atomic<int> g_active_task(NoVisionTask);
@@ -122,6 +123,44 @@ void playAudioFile(const std::string& audio_file) {
     msg.data = audio_file;
     g_audio_play_pub.publish(msg);
     ROS_INFO("播放音频文件：%s", audio_file.c_str());
+}
+
+// 按约定生成完整音频文件路径：audio_dir/category/key.wav。
+std::string audioPath(const std::string& category, const std::string& key) {
+    const bool has_trailing_slash =
+        !g_audio_dir.empty() &&
+        (g_audio_dir[g_audio_dir.size() - 1] == '/' ||
+         g_audio_dir[g_audio_dir.size() - 1] == '\\');
+    return g_audio_dir + (has_trailing_slash ? "" : "/") + category + "/" + key + ".wav";
+}
+
+// 将化验区目标编号转换为送样音频文件名中的窗口 key。
+std::string slotKey(int delivery_slot) {
+    static const char* keys[] = {"blood", "body_fluid", "immune", "hormone"};
+    delivery_slot = std::max(1, std::min(4, delivery_slot));
+    return keys[delivery_slot - 1];
+}
+
+// 将识别结果编号转换为取样播报音频文件名中的样本类型 key。
+std::string sampleKey(int delivery_slot) {
+    static const char* keys[] = {"venous_blood", "saliva", "tissue", "plasma"};
+    delivery_slot = std::max(1, std::min(4, delivery_slot));
+    return keys[delivery_slot - 1];
+}
+
+// 根据二维码/识别板一结果生成窗口组合 key，例如 A、AB、ABC。
+std::string windowsKey(const Board1Result& result) {
+    std::string key;
+    if (result.has_a) {
+        key += "A";
+    }
+    if (result.has_b) {
+        key += "B";
+    }
+    if (result.has_c) {
+        key += "C";
+    }
+    return key;
 }
 
 // 将保存后的图片路径发给识别板一服务，并直接接收结构化识别结果。
@@ -386,7 +425,6 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         pickup_route.push_back("pickup_B");
     }
 
-    std::string pickup_windows;
     for (const std::string& goal_name : pickup_route) {
         const GoalTask* goal = findGoalByName(goal_name);
         if (goal == nullptr) {
@@ -399,26 +437,13 @@ bool runOneQrMission(MoveBaseClient& move_client) {
 
         ros::Duration(1.5).sleep();
         const std::string window_name = goal_name.substr(goal_name.size() - 1);
-        if (!pickup_windows.empty()) {
-            pickup_windows += ",";
-        }
-        pickup_windows += window_name;
         ROS_INFO("已取到样本：source_slot=%s", window_name.c_str());
     }
     
-    
-    const char* sample_type = "静脉血样本";
-    if (board1_result.delivery_slot == 2) {
-        sample_type = "唾液样本";
-    } else if (board1_result.delivery_slot == 3) {
-        sample_type = "组织样本";
-    } else if (board1_result.delivery_slot == 4) {
-        sample_type = "血浆样本";
-    }
-
-    ROS_INFO("取样播报：取到 %s 窗口中的 %s",
-             pickup_windows.c_str(), sample_type);
-    playAudioFile("/path/to/pickup_summary.mp3");
+    // 根据识别结果生成取样播报音频文件名，并播放。
+    const std::string pickup_key =
+        windowsKey(board1_result) + "_" + sampleKey(board1_result.delivery_slot);
+    playAudioFile(audioPath("pickup", pickup_key));
 
     const GoalTask* board2_goal = findGoalByName("board2_scan");
     if (board2_goal == nullptr) {
@@ -436,16 +461,13 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         board2_result.speech_text = "化验区空闲中，请快速通过";
     }
 
-    board2_result.wait_seconds = std::max(0, board2_result.wait_seconds);
-    //如果识别消息为空
-    if (board2_result.speech_text.empty()) {
-        board2_result.speech_text =
-            board2_result.wait_seconds > 0 ? "化验区忙碌中，请等待"
-                                           : "化验区空闲中，请快速通过";
+    const std::string board2_key =
+        board2_result.wait_seconds > 0 ? "wait_" + std::to_string(board2_result.wait_seconds)
+                                       : "free";
+    if (!board2_result.speech_text.empty()) {
+        ROS_INFO("识别板二服务返回文本：%s", board2_result.speech_text.c_str());
     }
-
-    ROS_INFO("识别板二播报：%s", board2_result.speech_text.c_str());
-    playAudioFile("/path/to/board2_notice.mp3");
+    playAudioFile(audioPath("board2", board2_key));
     if (board2_result.wait_seconds > 0) {
         ROS_INFO("化验区忙碌，等待 %d 秒后再通过", board2_result.wait_seconds);
         ros::Duration(board2_result.wait_seconds).sleep();
@@ -462,23 +484,12 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         return false;
     }
 
-    const char* delivery_window = "血常规窗口";
-    if (board1_result.delivery_slot == 2) {
-        delivery_window = "体液窗口";
-    } else if (board1_result.delivery_slot == 3) {
-        delivery_window = "免疫检测窗口";
-    } else if (board1_result.delivery_slot == 4) {
-        delivery_window = "激素检验窗口";
-    }
-
     ros::Duration(1.5).sleep();
     ROS_INFO("样本已送达：delivery_slot=%d，count=%d",
              board1_result.delivery_slot, board1_result.sample_count);
-    ROS_INFO("送样播报：到达 %s，样本数为%d",
-             delivery_window, board1_result.sample_count);
-    playAudioFile("/path/to/delivery_notice.mp3");
-
-    playAudioFile("/path/to/mission_done.mp3");
+    playAudioFile(audioPath("delivery",
+                            slotKey(board1_result.delivery_slot) + "_" +
+                                std::to_string(board1_result.sample_count)));
     ROS_INFO("========== 一轮药房任务完成 ==========");
     return true;
 }
@@ -504,12 +515,6 @@ int main(int argc, char* argv[]) {
     g_board1_client = nh.serviceClient<move_nav::Board1Decode>(board1_service);
     g_board2_client = nh.serviceClient<move_nav::Board2Decode>(board2_service);
 
-    ROS_INFO("=== 直接服务调用版药房控制节点已启动 ===");
-    ROS_INFO("参数：use_mock_data=%d，mock_navigation=%d，max_rounds=%d",
-             g_use_mock_data, g_mock_navigation, g_max_rounds);
-    ROS_INFO("视觉服务：board1=%s，board2=%s",
-             board1_service.c_str(), board2_service.c_str());
-
     if (!g_mock_navigation) {
         ROS_INFO("等待 move_base action server...");
         move_client.waitForServer();
@@ -528,7 +533,6 @@ int main(int argc, char* argv[]) {
         }
 
         if (!ok) {
-            playAudioFile("/path/to/task_error.mp3");
             return 1;
         }
 
