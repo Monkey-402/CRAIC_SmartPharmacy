@@ -28,10 +28,10 @@ Board1Decode.srv：
 *   int32 delivery_slot   # 送达目标点 1=血常规，2=体液，3=免疫检测，4=激素检验
 *   int32 sample_count     #样本数量
 Board2Decode.srv：
+*   string image_path  #图片路径
+---
 *   int32 wait_seconds #等待秒数
 *   string speech_text #识别文字
-发送：
-*   string image_path  #图片路径
 */
 
 // 别名
@@ -87,6 +87,12 @@ static std::atomic<int> g_active_task(NoVisionTask);// 视觉服务开关
 bool g_use_mock_data = false;
 bool g_mock_navigation = false;
 int g_max_rounds = 0;
+// 启动时等待二维码和文字识别服务就绪的最长时间，OCR 首次加载通常会慢一些。
+double g_vision_service_wait_timeout = 30.0;
+// 启动时等待 move_base action server 就绪的最长时间。
+double g_move_base_wait_timeout = 30.0;
+// 单个导航目标发送后，等待目标进入 ACTIVE 或终态的最长时间。
+double g_navigation_start_timeout = 10.0;
 size_t current_point = 0;
 
 bool g_service_done = false;
@@ -189,24 +195,27 @@ bool callBoard1Service(const std::string& image_path) {
     return normalizeBoard1Result(&g_board1_result);
 }
 
-// 将保存后的图片路径发给识别板二服务，并直接接收化验区状态结果。
+// 将保存后的图片路径发给文字识别服务，并接收识别板二的化验区状态结果。
 bool callBoard2Service(const std::string& image_path) {
     if (!g_board2_client.waitForExistence(ros::Duration(5.0))) {
-        ROS_ERROR("识别板二视觉服务不可用");
+        ROS_ERROR("识别板二文字识别服务不可用");
         return false;
     }
 
     move_nav::Board2Decode srv;
     srv.request.image_path = image_path;
 
-    ROS_INFO("调用识别板二视觉服务：image_path=%s", image_path.c_str());
+    ROS_INFO("调用识别板二文字识别服务：image_path=%s", image_path.c_str());
     if (!g_board2_client.call(srv)) {
-        ROS_ERROR("调用识别板二视觉服务失败");
+        ROS_ERROR("调用识别板二文字识别服务失败");
         return false;
     }
 
     g_board2_result.wait_seconds = srv.response.wait_seconds;
     g_board2_result.speech_text = srv.response.speech_text;
+    ROS_INFO("识别板二文字识别返回：wait_seconds=%d，speech_text=%s",
+             g_board2_result.wait_seconds,
+             g_board2_result.speech_text.c_str());
     return true;
 }
 
@@ -284,16 +293,47 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     ros::Rate rate(10);
     client.sendGoal(toMove(goal_task));
 
-    while (ros::ok() && client.getState() != actionlib::SimpleClientGoalState::ACTIVE) {
+    // 目标刚发出去时通常会先进入 PENDING，再进入 ACTIVE。
+    // 这里使用 WallTime，避免仿真时间 /clock 未发布或暂停时超时判断失效。
+    const ros::WallTime start_deadline =
+        ros::WallTime::now() + ros::WallDuration(g_navigation_start_timeout);
+    while (ros::ok()) {
+        const actionlib::SimpleClientGoalState state = client.getState();
+        // 某些很近的目标可能还没观察到 ACTIVE 就已经 SUCCEEDED，直接进入后续成功处理。
+        if (state == actionlib::SimpleClientGoalState::ACTIVE ||
+            state == actionlib::SimpleClientGoalState::SUCCEEDED) {
+            break;
+        }
+        // 如果在启动阶段已经进入失败终态，立即返回，避免一直等 ACTIVE。
+        if (state.isDone()) {
+            ROS_ERROR("导航目标启动失败：%s，状态=%s",
+                      goal_task.name.c_str(), state.toString().c_str());
+            client.cancelGoal();
+            return false;
+        }
+        if (ros::WallTime::now() >= start_deadline) {
+            ROS_ERROR("导航目标启动超时：%s，等待 ACTIVE 超过 %.1f 秒，当前状态=%s",
+                      goal_task.name.c_str(),
+                      g_navigation_start_timeout,
+                      state.toString().c_str());
+            client.cancelGoal();
+            return false;
+        }
         ros::spinOnce();
         rate.sleep();
     }
+    if (!ros::ok()) {
+        client.cancelGoal();
+        return false;
+    }
 
-    while (ros::ok() && client.getState() != actionlib::SimpleClientGoalState::SUCCEEDED) {
+    while (ros::ok()) {
         const actionlib::SimpleClientGoalState state = client.getState();
-        if (state == actionlib::SimpleClientGoalState::ABORTED ||
-            state == actionlib::SimpleClientGoalState::REJECTED ||
-            state == actionlib::SimpleClientGoalState::LOST) {
+        if (state == actionlib::SimpleClientGoalState::SUCCEEDED) {
+            break;
+        }
+        // 除 SUCCEEDED 外的所有终态都按导航失败处理，例如 ABORTED、REJECTED、PREEMPTED。
+        if (state.isDone()) {
             ROS_ERROR("导航失败：%s，状态=%s",
                       goal_task.name.c_str(), state.toString().c_str());
             client.cancelGoal();
@@ -301,6 +341,10 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
         }
         ros::spinOnce();
         rate.sleep();
+    }
+    if (!ros::ok()) {
+        client.cancelGoal();
+        return false;
     }
 
     ROS_INFO("第 %zu 个点已到达：%s", current_point, goal_task.name.c_str());
@@ -353,7 +397,7 @@ bool requestBoard1Vision(double timeout_sec, Board1Result* result) {
     return false;
 }
 
-// 请求识别板二识别，并等待直接服务调用返回结果。
+// 请求识别板二截图，并在 snapshotCB 中调用文字识别服务返回结果。
 bool requestBoard2Vision(double timeout_sec, Board2Result* result) {
     if (g_use_mock_data) {
         if (result != nullptr) {
@@ -531,6 +575,9 @@ int main(int argc, char* argv[]) {
     pnh.param("use_mock_data", g_use_mock_data, g_use_mock_data);
     pnh.param("mock_navigation", g_mock_navigation, g_mock_navigation);
     pnh.param("max_rounds", g_max_rounds, g_max_rounds);
+    pnh.param("vision_service_wait_timeout", g_vision_service_wait_timeout, g_vision_service_wait_timeout);
+    pnh.param("move_base_wait_timeout", g_move_base_wait_timeout, g_move_base_wait_timeout);
+    pnh.param("navigation_start_timeout", g_navigation_start_timeout, g_navigation_start_timeout);
     pnh.param("board1_detection_service", board1_service, board1_service);
     pnh.param("board2_detection_service", board2_service, board2_service);
 
@@ -541,23 +588,39 @@ int main(int argc, char* argv[]) {
     g_board2_client = nh.serviceClient<move_nav::Board2Decode>(board2_service);
 
     ROS_INFO("=== 直接服务调用版药房控制节点已启动 ===");
-    ROS_INFO("参数：use_mock_data=%d，mock_navigation=%d，max_rounds=%d",
-             g_use_mock_data, g_mock_navigation, g_max_rounds);
+    ROS_INFO("参数：use_mock_data=%d，mock_navigation=%d，max_rounds=%d，vision_service_wait_timeout=%.1f，move_base_wait_timeout=%.1f，navigation_start_timeout=%.1f",
+             g_use_mock_data,
+             g_mock_navigation,
+             g_max_rounds,
+             g_vision_service_wait_timeout,
+             g_move_base_wait_timeout,
+             g_navigation_start_timeout);
     ROS_INFO("视觉服务：board1=%s，board2=%s",
              board1_service.c_str(), board2_service.c_str());
 
     if (!g_use_mock_data) {
         ROS_INFO("等待二维码识别服务：%s", board1_service.c_str());
-        if (!g_board1_client.waitForExistence(ros::Duration(10.0))) {
+        if (!g_board1_client.waitForExistence(ros::Duration(g_vision_service_wait_timeout))) {
             ROS_ERROR("二维码识别服务未就绪，主程序停止：%s", board1_service.c_str());
             return 1;
         }
         ROS_INFO("二维码识别服务已连接");
+
+        ROS_INFO("等待识别板二文字识别服务：%s", board2_service.c_str());
+        if (!g_board2_client.waitForExistence(ros::Duration(g_vision_service_wait_timeout))) {
+            ROS_ERROR("识别板二文字识别服务未就绪，主程序停止：%s", board2_service.c_str());
+            return 1;
+        }
+        ROS_INFO("识别板二文字识别服务已连接");
     }
 
     if (!g_mock_navigation) {
         ROS_INFO("等待 move_base action server...");
-        move_client.waitForServer();
+        if (!move_client.waitForServer(ros::Duration(g_move_base_wait_timeout))) {
+            ROS_ERROR("move_base action server 未就绪，主程序停止，等待超时 %.1f 秒",
+                      g_move_base_wait_timeout);
+            return 1;
+        }
         ROS_INFO("已连接 move_base action server");
     } else {
         ROS_INFO("[模拟导航] 跳过 move_base action server");

@@ -27,10 +27,9 @@ pip3 install pyzbar
 ## 运行
 
 ```bash
-cd /CRAIC_SmartPharmacy/control_ws
+cd CRAIC_SmartPharmacy/control_ws
 catkin_make
 source devel/setup.bash
-rospack profile
 roslaunch qr_code_recognition qr.launch
 ```
 

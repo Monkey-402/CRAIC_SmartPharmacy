@@ -1,6 +1,46 @@
 <launch>
+  <!-- 识别板一二维码服务名：主控用它调用二维码节点，二维码节点用它注册 ROS service。 -->
+  <arg name="board1_decode_service" default="/yaofang_vision/board1_decode" />
+  <!-- 识别板二文字服务名：主控用它调用 OCR 节点，OCR 节点用它注册 ROS service。 -->
+  <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
+
+  <!-- 主控启动后等待视觉服务就绪的最长秒数；OCR 首次加载慢时可适当调大。 -->
+  <arg name="vision_service_wait_timeout" default="30.0" />
+
+  <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
+  <arg name="qr_image_ready_timeout_sec" default="0.2" />
+  <!-- 二维码节点检查图片文件大小是否稳定的轮询间隔，单位秒。 -->
+  <arg name="qr_image_ready_poll_sec" default="0.01" />
+
+  <!-- OCR 二值化方式：otsu 适合光照均匀，adaptive 适合反光或局部阴影。 -->
+  <arg name="ocr_threshold_method" default="otsu" />
+  <!-- adaptive 模式下的局部窗口大小，必须为大于 1 的奇数，值越大越适合大字或低分辨率图片。 -->
+  <arg name="ocr_adaptive_block_size" default="31" />
+  <!-- adaptive 模式下的阈值偏移量，值越大二值化结果通常越偏黑。 -->
+  <arg name="ocr_adaptive_c" default="11" />
+
+  <!-- 识别板一：二维码识别服务，返回 A/B/C 取样窗口和送达窗口。 -->
+  <include file="$(find qr_code_recognition)/launch/qr.launch">
+    <arg name="board1_decode_service" value="$(arg board1_decode_service)" />
+    <arg name="image_ready_timeout_sec" value="$(arg qr_image_ready_timeout_sec)" />
+    <arg name="image_ready_poll_sec" value="$(arg qr_image_ready_poll_sec)" />
+  </include>
+
+  <!-- 识别板二：文字识别服务，返回化验区等待秒数和播报文字。 -->
+  <include file="$(find text_recognition)/launch/ocr_service.launch">
+    <arg name="board2_decode_service" value="$(arg board2_decode_service)" />
+    <arg name="threshold_method" value="$(arg ocr_threshold_method)" />
+    <arg name="adaptive_block_size" value="$(arg ocr_adaptive_block_size)" />
+    <arg name="adaptive_c" value="$(arg ocr_adaptive_c)" />
+  </include>
+
+  <!-- 药房主控：负责导航、拍照、调用视觉服务并执行取样/送样流程。 -->
   <node name="yaofang_control_service_node"
         pkg="move_nav"
         type="yaofang_control_service_node"
-        output="screen" />
+        output="screen">
+    <param name="board1_detection_service" value="$(arg board1_decode_service)" />
+    <param name="board2_detection_service" value="$(arg board2_decode_service)" />
+    <param name="vision_service_wait_timeout" value="$(arg vision_service_wait_timeout)" />
+  </node>
 </launch>

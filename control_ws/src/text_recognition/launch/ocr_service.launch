@@ -1,5 +1,12 @@
 <launch>
   <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
+  <!-- 默认使用大津法 otsu；如果现场反光或光照不均严重，可改为 adaptive。 -->
+  <!-- 启动时也可以临时覆盖：roslaunch text_recognition ocr_service.launch threshold_method:=adaptive -->
+  <arg name="threshold_method" default="otsu" />
+  <!-- 仅在 threshold_method=adaptive 时生效；block_size 需为大于 1 的奇数，值越大越适合大字或低分辨率文字。 -->
+  <arg name="adaptive_block_size" default="31" />
+  <!-- 仅在 threshold_method=adaptive 时生效；C 越大，二值化结果通常越偏黑，需要结合现场光照调试。 -->
+  <arg name="adaptive_c" default="11" />
 
   <node
       pkg="text_recognition"
@@ -7,5 +14,8 @@
       name="ocr_service"
       output="screen">
     <param name="board2_decode_service" value="$(arg board2_decode_service)" />
+    <param name="threshold_method" value="$(arg threshold_method)" />
+    <param name="adaptive_block_size" value="$(arg adaptive_block_size)" />
+    <param name="adaptive_c" value="$(arg adaptive_c)" />
   </node>
 </launch>
