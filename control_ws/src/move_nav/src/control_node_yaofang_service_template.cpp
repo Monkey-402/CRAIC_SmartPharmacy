@@ -10,7 +10,6 @@
 #include <opencv2/opencv.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
-#include <std_msgs/String.h>
 #include <tf2/LinearMath/Quaternion.h>
 
 #include "move_nav/Board1Decode.h"
@@ -75,7 +74,6 @@ const std::vector<GoalTask> GOAL_LIST = {
     {2.602, 3.030, 1.543, "deliver_4"}
 };
 
-ros::Publisher g_audio_play_pub;
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
 std::string g_audio_dir = "/home/EPRobot/audio/yaofang/";
@@ -112,17 +110,19 @@ Board2Result makeMockBoard2Result() {
     return result;
 }
 
-// 将音频文件路径发布到语音播放话题。
+// 使用小车原有方式播放 wav 文件：调用系统 aplay 命令。
 void playAudioFile(const std::string& audio_file) {
     if (audio_file.empty()) {
         ROS_WARN("音频文件路径为空，跳过播放");
         return;
     }
 
-    std_msgs::String msg;
-    msg.data = audio_file;
-    g_audio_play_pub.publish(msg);
     ROS_INFO("播放音频文件：%s", audio_file.c_str());
+    const std::string cmd = "aplay \"" + audio_file + "\"";
+    const int ret = system(cmd.c_str());
+    if (ret != 0) {
+        ROS_WARN("音频播放命令执行失败：%s，返回值=%d", cmd.c_str(), ret);
+    }
 }
 
 // 按约定生成完整音频文件路径：audio_dir/category/key.wav。
@@ -511,7 +511,6 @@ int main(int argc, char* argv[]) {
 
     MoveBaseClient move_client("move_base", true);
     ros::Subscriber image_sub = nh.subscribe("/camera/image_raw", 1, snapshotCB);
-    g_audio_play_pub = nh.advertise<std_msgs::String>("/smartcommunity/audio_play", 10);
     g_board1_client = nh.serviceClient<move_nav::Board1Decode>(board1_service);
     g_board2_client = nh.serviceClient<move_nav::Board2Decode>(board2_service);
 
