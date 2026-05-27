@@ -76,7 +76,7 @@ const std::vector<GoalTask> GOAL_LIST = {
 
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
-std::string g_audio_dir = "/home/EPRobot/audio/yaofang/";
+std::string g_audio_dir = "/home/EPRobot/audio/yaofang/"; #路径名字要改一下
 
 static std::atomic<int> g_img_idx(0);
 static std::atomic<int> g_active_task(NoVisionTask);

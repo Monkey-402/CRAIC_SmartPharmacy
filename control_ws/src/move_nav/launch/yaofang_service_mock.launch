@@ -7,7 +7,7 @@
   <arg name="start_qr_node" default="true" />
   <arg name="start_ocr_node" default="true" />
 
-  <include file="$(find qr_code_recognition)/qr.launch" if="$(arg start_qr_node)">
+  <include file="$(find qr_code_recognition)/launch/qr.launch" if="$(arg start_qr_node)">
     <arg name="board1_decode_service" value="$(arg board1_detection_service)" />
   </include>
 
