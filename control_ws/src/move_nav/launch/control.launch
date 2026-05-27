@@ -12,8 +12,8 @@
   <arg name="mock_navigation" default="false" />
   <!-- 默认连续运行；需要单轮测试时可通过 max_rounds:=1 覆盖。 -->
   <arg name="max_rounds" default="0" />
-  <!-- 临时测试语音文件：用包路径展开，避免不同队员工作区根目录不一致。 -->
-  <arg name="test_audio_file" default="$(find move_nav)/audio/AC_venous_blood.wav" />
+  <!-- 语音目录：用包路径展开，避免不同队员工作区根目录不一致。 -->
+  <arg name="audio_dir" default="$(find move_nav)/audio" />
   <!-- 截图保存目录：默认使用 /tmp，避免依赖某个队员的 home 路径。 -->
   <arg name="snapshot_dir" default="/tmp/yaofang_snapshots/" />
 
@@ -56,7 +56,7 @@
     <param name="board1_detection_service" value="$(arg board1_decode_service)" />
     <param name="board2_detection_service" value="$(arg board2_decode_service)" />
     <param name="vision_service_wait_timeout" value="$(arg vision_service_wait_timeout)" />
-    <param name="test_audio_file" value="$(arg test_audio_file)" />
+    <param name="audio_dir" value="$(arg audio_dir)" />
     <param name="snapshot_dir" value="$(arg snapshot_dir)" />
   </node>
 </launch>
