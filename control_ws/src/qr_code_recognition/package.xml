@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>qr_code_recognition</name>
+  <version>0.0.0</version>
+  <description>QR code recognition service for the yaofang board1 workflow.</description>
+
+  <maintainer email="todo@example.com">todo</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>move_nav</depend>
+  <depend>rospy</depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-pyzbar</exec_depend>
+</package>
