@@ -81,8 +81,7 @@ const std::vector<GoalTask> GOAL_LIST = {
 
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
-std::string g_audio_dir = "/home/EPRobot/audio/yaofang/";
-std::string g_test_audio_file = "audio/AC_venous_blood.wav";
+std::string g_audio_dir = "audio";
 std::string g_snapshot_dir = "/tmp/yaofang_snapshots/";
 
 static std::atomic<int> g_img_idx(0);// 图像序号计数器
@@ -167,6 +166,12 @@ bool normalizeBoard1Result(Board1Result* result) {
 void playAudioFile(const std::string& audio_file) {
     if (audio_file.empty()) {
         ROS_WARN("音频文件路径为空，跳过播放");
+        return;
+    }
+
+    struct stat info;
+    if (stat(audio_file.c_str(), &info) != 0 || !S_ISREG(info.st_mode)) {
+        ROS_WARN("音频文件不存在，跳过播放：%s", audio_file.c_str());
         return;
     }
 
@@ -640,10 +645,9 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     }
     
     // 根据识别结果生成取样播报音频文件名，并播放。
-    //const std::string pickup_key =
-    //    windowsKey(board1_result) + "_" + sampleKey(board1_result.delivery_slot);
-    //playAudioFile(audioPath("pickup", pickup_key));
-    playAudioFile(g_test_audio_file);
+    const std::string pickup_key =
+        windowsKey(board1_result) + "_" + sampleKey(board1_result.delivery_slot);
+    playAudioFile(audioPath("pickup", pickup_key));
 
     const GoalTask* board2_goal = findGoalByName("board2_scan");
     if (board2_goal == nullptr) {
@@ -661,14 +665,13 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         board2_result.speech_text = "化验区空闲中，请快速通过";
     }
 
-    //const std::string board2_key =
-    //    board2_result.wait_seconds > 0 ? "wait_" + std::to_string(board2_result.wait_seconds)
-    //                                   : "free";
-    //if (!board2_result.speech_text.empty()) {
-    //    ROS_INFO("识别板二服务返回文本：%s", board2_result.speech_text.c_str());
-    //}
-    //playAudioFile(audioPath("board2", board2_key));
-    playAudioFile(g_test_audio_file);
+    const std::string board2_key =
+        board2_result.wait_seconds > 0 ? "wait_" + std::to_string(board2_result.wait_seconds)
+                                       : "free";
+    if (!board2_result.speech_text.empty()) {
+        ROS_INFO("识别板二服务返回文本：%s", board2_result.speech_text.c_str());
+    }
+    playAudioFile(audioPath("board2", board2_key));
     if (board2_result.wait_seconds > 0) {
         ROS_INFO("化验区忙碌，等待 %d 秒后再通过", board2_result.wait_seconds);
         ros::Duration(board2_result.wait_seconds).sleep();
@@ -688,10 +691,9 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     ros::Duration(1.5).sleep();
     ROS_INFO("样本已送达：delivery_slot=%d，count=%d",
              board1_result.delivery_slot, board1_result.sample_count);
-    //playAudioFile(audioPath("delivery",
-    //                        slotKey(board1_result.delivery_slot) + "_" +
-    //                            std::to_string(board1_result.sample_count)));
-    playAudioFile(g_test_audio_file);
+    playAudioFile(audioPath("delivery",
+                            slotKey(board1_result.delivery_slot) + "_" +
+                                std::to_string(board1_result.sample_count)));
     ROS_INFO("========== 一轮药房任务完成 ==========");
     return true;
 }
@@ -713,7 +715,7 @@ int main(int argc, char* argv[]) {
     pnh.param("navigation_start_timeout", g_navigation_start_timeout, g_navigation_start_timeout);
     pnh.param("board1_detection_service", board1_service, board1_service);
     pnh.param("board2_detection_service", board2_service, board2_service);
-    pnh.param("test_audio_file", g_test_audio_file, g_test_audio_file);
+    pnh.param("audio_dir", g_audio_dir, g_audio_dir);
     pnh.param("snapshot_dir", g_snapshot_dir, g_snapshot_dir);
 
     if (!ensureDirectoryExists(g_snapshot_dir)) {
@@ -736,7 +738,7 @@ int main(int argc, char* argv[]) {
              g_navigation_start_timeout);
     ROS_INFO("视觉服务：board1=%s，board2=%s",
              board1_service.c_str(), board2_service.c_str());
-    ROS_INFO("测试语音文件：%s", g_test_audio_file.c_str());
+    ROS_INFO("语音目录：%s", directoryWithTrailingSlash(g_audio_dir).c_str());
     ROS_INFO("截图保存目录：%s", directoryWithTrailingSlash(g_snapshot_dir).c_str());
 
     if (!g_use_mock_data) {
