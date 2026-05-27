@@ -6,6 +6,16 @@
 
   <!-- 主控启动后等待视觉服务就绪的最长秒数；OCR 首次加载慢时可适当调大。 -->
   <arg name="vision_service_wait_timeout" default="30.0" />
+  <!-- 正式流程默认调用真实视觉服务，不使用内置假数据。 -->
+  <arg name="use_mock_data" default="false" />
+  <!-- 正式流程默认连接 move_base，不模拟导航。 -->
+  <arg name="mock_navigation" default="false" />
+  <!-- 默认连续运行；需要单轮测试时可通过 max_rounds:=1 覆盖。 -->
+  <arg name="max_rounds" default="0" />
+  <!-- 临时测试语音文件：用包路径展开，避免不同队员工作区根目录不一致。 -->
+  <arg name="test_audio_file" default="$(find move_nav)/audio/AC_venous_blood.wav" />
+  <!-- 截图保存目录：默认使用 /tmp，避免依赖某个队员的 home 路径。 -->
+  <arg name="snapshot_dir" default="/tmp/yaofang_snapshots/" />
 
   <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
   <arg name="qr_image_ready_timeout_sec" default="0.2" />
@@ -38,9 +48,15 @@
   <node name="yaofang_control_service_node"
         pkg="move_nav"
         type="yaofang_control_service_node"
-        output="screen">
+        output="screen"
+        clear_params="true">
+    <param name="use_mock_data" value="$(arg use_mock_data)" />
+    <param name="mock_navigation" value="$(arg mock_navigation)" />
+    <param name="max_rounds" value="$(arg max_rounds)" />
     <param name="board1_detection_service" value="$(arg board1_decode_service)" />
     <param name="board2_detection_service" value="$(arg board2_decode_service)" />
     <param name="vision_service_wait_timeout" value="$(arg vision_service_wait_timeout)" />
+    <param name="test_audio_file" value="$(arg test_audio_file)" />
+    <param name="snapshot_dir" value="$(arg snapshot_dir)" />
   </node>
 </launch>

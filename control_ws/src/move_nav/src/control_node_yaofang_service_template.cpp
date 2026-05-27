@@ -1,6 +1,10 @@
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <clocale>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -12,12 +16,11 @@
 #include <sensor_msgs/Image.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "move_nav/Board1Decode.h"
 #include "move_nav/Board2Decode.h"
-
-#ifndef SAVE_DIR
-#define SAVE_DIR "/home/zinn/snapshots/"
-#endif
 
 /*
 Board1Decode.srv：
@@ -79,6 +82,8 @@ const std::vector<GoalTask> GOAL_LIST = {
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
 std::string g_audio_dir = "/home/EPRobot/audio/yaofang/";
+std::string g_test_audio_file = "audio/AC_venous_blood.wav";
+std::string g_snapshot_dir = "/tmp/yaofang_snapshots/";
 
 static std::atomic<int> g_img_idx(0);// 图像序号计数器
 static std::atomic<int> g_active_task(NoVisionTask);// 视觉服务开关
@@ -86,18 +91,24 @@ static std::atomic<int> g_active_task(NoVisionTask);// 视觉服务开关
 bool g_use_mock_data = false;
 bool g_mock_navigation = false;
 int g_max_rounds = 0;
+
 // 启动时等待二维码和文字识别服务就绪的最长时间，OCR 首次加载通常会慢一些。
 double g_vision_service_wait_timeout = 30.0;
 // 启动时等待 move_base action server 就绪的最长时间。
 double g_move_base_wait_timeout = 30.0;
 // 单个导航目标发送后，等待目标进入 ACTIVE 或终态的最长时间。
-double g_navigation_start_timeout = 10.0;
+double g_navigation_start_timeout = 30.0;
+
+// 第几个导航点
 size_t current_point = 0;
 
-bool g_service_done = false;
-bool g_service_ok = false;
-Board1Result g_board1_result;
-Board2Result g_board2_result;
+bool g_service_ok = false;// 服务是否成功返回
+std::atomic<bool> g_snapshot_done(false);// 截图动作是否结束
+std::atomic<bool> g_snapshot_ok(false);// 截图是否成功
+std::mutex g_snapshot_image_path_mutex;
+std::string g_snapshot_image_path;// 图片绝对路径
+Board1Result g_board1_result;// 二维码缓存结果
+Board2Result g_board2_result;// 文字缓存结果
 
 // 生成固定的识别板一模拟结果，方便视觉节点未完成时先调试导航流程。
 Board1Result makeMockBoard1Result() {
@@ -118,12 +129,14 @@ Board2Result makeMockBoard2Result() {
     return result;
 }
 
+// 计算当前二维码包含了几个取样任务
 int countBoard1Samples(const Board1Result& result) {
     return static_cast<int>(result.has_a) +
            static_cast<int>(result.has_b) +
            static_cast<int>(result.has_c);
 }
 
+// 安全检测二维码识别结果
 bool normalizeBoard1Result(Board1Result* result) {
     if (result == nullptr) {
         return false;
@@ -149,7 +162,7 @@ bool normalizeBoard1Result(Board1Result* result) {
     return true;
 }
 
-// 将音频文件路径发布到语音播放话题。
+// 将音频文件路径进行播报。
 // 使用小车原有方式播放 wav 文件：调用系统 aplay 命令。
 void playAudioFile(const std::string& audio_file) {
     if (audio_file.empty()) {
@@ -172,6 +185,83 @@ std::string audioPath(const std::string& category, const std::string& key) {
         (g_audio_dir[g_audio_dir.size() - 1] == '/' ||
          g_audio_dir[g_audio_dir.size() - 1] == '\\');
     return g_audio_dir + (has_trailing_slash ? "" : "/") + category + "/" + key + ".wav";
+}
+
+// 确保目录路径的末尾带有斜杠
+std::string directoryWithTrailingSlash(const std::string& directory) {
+    if (directory.empty()) {
+        return directory;
+    }
+
+    const char last = directory[directory.size() - 1];
+    return directory + ((last == '/' || last == '\\') ? "" : "/");
+}
+
+// 检查指定的路径在操作系统的文件系统中是否存在
+bool directoryExists(const std::string& directory) {
+    struct stat info;
+    return stat(directory.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+}
+
+// 如果目录不存在，创建整个路径
+bool ensureDirectoryExists(const std::string& directory) {
+    if (directory.empty()) {
+        ROS_ERROR("截图保存目录为空");
+        return false;
+    }
+
+    std::string target = directory;
+    while (target.size() > 1 &&
+           (target[target.size() - 1] == '/' || target[target.size() - 1] == '\\')) {
+        target.erase(target.size() - 1);
+    }
+
+    if (directoryExists(target)) {
+        return true;
+    }
+
+    std::string current;
+    size_t pos = 0;
+    if (!target.empty() && target[0] == '/') {
+        current = "/";
+        pos = 1;
+    }
+
+    while (pos <= target.size()) {
+        const size_t next = target.find('/', pos);
+        const std::string part =
+            target.substr(pos, next == std::string::npos ? std::string::npos : next - pos);
+        if (!part.empty()) {
+            if (current.empty()) {
+                current = part;
+            } else if (current == "/") {
+                current += part;
+            } else {
+                current += "/" + part;
+            }
+
+            if (!directoryExists(current) &&
+                mkdir(current.c_str(), 0755) != 0 &&
+                errno != EEXIST) {
+                ROS_ERROR("创建截图保存目录失败：%s，错误：%s",
+                          current.c_str(), strerror(errno));
+                return false;
+            }
+        }
+
+        if (next == std::string::npos) {
+            break;
+        }
+        pos = next + 1;
+    }
+
+    return directoryExists(target);
+}
+
+// 生成最终图片保存的绝对路径
+std::string snapshotImagePath(int image_index) {
+    return directoryWithTrailingSlash(g_snapshot_dir) +
+           std::to_string(image_index) + ".jpg";
 }
 
 // 将化验区目标编号转换为送样音频文件名中的窗口 key。
@@ -259,44 +349,36 @@ bool callBoard2Service(const std::string& image_path) {
     return true;
 }
 
-// 保存一帧相机图像，并执行当前等待中的识别板一或识别板二服务请求。
+// 保存一帧相机图像。回调里不调用视觉服务，避免服务阻塞拖住 ROS 回调队列。
 void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
     const VisionTask task = static_cast<VisionTask>(g_active_task.load());
     if (task == NoVisionTask) {
         return;
     }
+
+    bool snapshot_ok = false;
+    std::string image_path;
     try {
         cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, "bgr8");
-        const std::string image_path =
-            std::string(SAVE_DIR) + std::to_string(g_img_idx++) + ".jpg";
+        image_path = snapshotImagePath(g_img_idx++);
 
         if (!cv::imwrite(image_path, cv_ptr->image)) {
             ROS_ERROR("保存图片失败：%s", image_path.c_str());
-            g_service_ok = false;
         } else {
             ROS_INFO("已保存图片：%s", image_path.c_str());
-            switch (task) {
-                case Board1Decode:
-                    ROS_INFO("调用视觉任务：board1_decode");
-                    g_service_ok = callBoard1Service(image_path);
-                    break;
-                case Board2Decode:
-                    ROS_INFO("调用视觉任务：board2_decode");
-                    g_service_ok = callBoard2Service(image_path);
-                    break;
-                default:
-                    ROS_ERROR("未知的视觉任务类型：%d", static_cast<int>(task));
-                    g_service_ok = false;
-                    break;
-                }
+            snapshot_ok = true;
         }
     } catch (const cv_bridge::Exception& e) {
         ROS_ERROR("cv_bridge 异常：%s", e.what());
-        g_service_ok = false;
     }
 
+    {
+        std::lock_guard<std::mutex> lock(g_snapshot_image_path_mutex);
+        g_snapshot_image_path = image_path;
+    }
+    g_snapshot_ok.store(snapshot_ok);
     g_active_task.store(NoVisionTask);
-    g_service_done = true;
+    g_snapshot_done.store(true);
 }
 
 // 将药房业务点位转换成 move_base 可执行的导航目标。
@@ -404,7 +486,7 @@ const GoalTask* findGoalByName(const std::string& name) {
     return nullptr;
 }
 
-// 请求识别板一截图，并在 snapshotCB 中调用二维码识别服务返回结果。
+// 请求识别板一截图；回调只保存图片，本函数拿到图片路径后再调用二维码识别服务。
 bool requestBoard1Vision(double timeout_sec, Board1Result* result) {
     if (g_use_mock_data) {
         if (result != nullptr) {
@@ -415,15 +497,33 @@ bool requestBoard1Vision(double timeout_sec, Board1Result* result) {
         return true;
     }
 
-    g_service_done = false;
     g_service_ok = false;
+    g_snapshot_done.store(false);
+    g_snapshot_ok.store(false);
+    {
+        std::lock_guard<std::mutex> lock(g_snapshot_image_path_mutex);
+        g_snapshot_image_path.clear();
+    }
     g_active_task.store(Board1Decode);
 
     ros::Rate rate(20);
-    const ros::Time deadline = ros::Time::now() + ros::Duration(timeout_sec);
-    while (ros::ok() && ros::Time::now() < deadline) {
+    const ros::WallTime deadline =
+        ros::WallTime::now() + ros::WallDuration(timeout_sec);
+    while (ros::ok() && ros::WallTime::now() < deadline) {
         ros::spinOnce();
-        if (g_service_done) {
+        if (g_snapshot_done.load()) {
+            if (!g_snapshot_ok.load()) {
+                g_service_ok = false;
+                return false;
+            }
+
+            ROS_INFO("调用视觉任务：board1_decode");
+            std::string image_path;
+            {
+                std::lock_guard<std::mutex> lock(g_snapshot_image_path_mutex);
+                image_path = g_snapshot_image_path;
+            }
+            g_service_ok = callBoard1Service(image_path);
             if (g_service_ok && result != nullptr) {
                 *result = g_board1_result;
             }
@@ -437,7 +537,7 @@ bool requestBoard1Vision(double timeout_sec, Board1Result* result) {
     return false;
 }
 
-// 请求识别板二截图，并在 snapshotCB 中调用文字识别服务返回结果。
+// 请求识别板二截图；回调只保存图片，本函数拿到图片路径后再调用文字识别服务。
 bool requestBoard2Vision(double timeout_sec, Board2Result* result) {
     if (g_use_mock_data) {
         if (result != nullptr) {
@@ -447,15 +547,33 @@ bool requestBoard2Vision(double timeout_sec, Board2Result* result) {
         return true;
     }
 
-    g_service_done = false;
     g_service_ok = false;
+    g_snapshot_done.store(false);
+    g_snapshot_ok.store(false);
+    {
+        std::lock_guard<std::mutex> lock(g_snapshot_image_path_mutex);
+        g_snapshot_image_path.clear();
+    }
     g_active_task.store(Board2Decode);
 
     ros::Rate rate(20);
-    const ros::Time deadline = ros::Time::now() + ros::Duration(timeout_sec);
-    while (ros::ok() && ros::Time::now() < deadline) {
+    const ros::WallTime deadline =
+        ros::WallTime::now() + ros::WallDuration(timeout_sec);
+    while (ros::ok() && ros::WallTime::now() < deadline) {
         ros::spinOnce();
-        if (g_service_done) {
+        if (g_snapshot_done.load()) {
+            if (!g_snapshot_ok.load()) {
+                g_service_ok = false;
+                return false;
+            }
+
+            ROS_INFO("调用视觉任务：board2_decode");
+            std::string image_path;
+            {
+                std::lock_guard<std::mutex> lock(g_snapshot_image_path_mutex);
+                image_path = g_snapshot_image_path;
+            }
+            g_service_ok = callBoard2Service(image_path);
             if (g_service_ok && result != nullptr) {
                 *result = g_board2_result;
             }
@@ -522,9 +640,10 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     }
     
     // 根据识别结果生成取样播报音频文件名，并播放。
-    const std::string pickup_key =
-        windowsKey(board1_result) + "_" + sampleKey(board1_result.delivery_slot);
-    playAudioFile(audioPath("pickup", pickup_key));
+    //const std::string pickup_key =
+    //    windowsKey(board1_result) + "_" + sampleKey(board1_result.delivery_slot);
+    //playAudioFile(audioPath("pickup", pickup_key));
+    playAudioFile(g_test_audio_file);
 
     const GoalTask* board2_goal = findGoalByName("board2_scan");
     if (board2_goal == nullptr) {
@@ -542,13 +661,14 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         board2_result.speech_text = "化验区空闲中，请快速通过";
     }
 
-    const std::string board2_key =
-        board2_result.wait_seconds > 0 ? "wait_" + std::to_string(board2_result.wait_seconds)
-                                       : "free";
-    if (!board2_result.speech_text.empty()) {
-        ROS_INFO("识别板二服务返回文本：%s", board2_result.speech_text.c_str());
-    }
-    playAudioFile(audioPath("board2", board2_key));
+    //const std::string board2_key =
+    //    board2_result.wait_seconds > 0 ? "wait_" + std::to_string(board2_result.wait_seconds)
+    //                                   : "free";
+    //if (!board2_result.speech_text.empty()) {
+    //    ROS_INFO("识别板二服务返回文本：%s", board2_result.speech_text.c_str());
+    //}
+    //playAudioFile(audioPath("board2", board2_key));
+    playAudioFile(g_test_audio_file);
     if (board2_result.wait_seconds > 0) {
         ROS_INFO("化验区忙碌，等待 %d 秒后再通过", board2_result.wait_seconds);
         ros::Duration(board2_result.wait_seconds).sleep();
@@ -568,9 +688,10 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     ros::Duration(1.5).sleep();
     ROS_INFO("样本已送达：delivery_slot=%d，count=%d",
              board1_result.delivery_slot, board1_result.sample_count);
-    playAudioFile(audioPath("delivery",
-                            slotKey(board1_result.delivery_slot) + "_" +
-                                std::to_string(board1_result.sample_count)));
+    //playAudioFile(audioPath("delivery",
+    //                        slotKey(board1_result.delivery_slot) + "_" +
+    //                            std::to_string(board1_result.sample_count)));
+    playAudioFile(g_test_audio_file);
     ROS_INFO("========== 一轮药房任务完成 ==========");
     return true;
 }
@@ -592,6 +713,13 @@ int main(int argc, char* argv[]) {
     pnh.param("navigation_start_timeout", g_navigation_start_timeout, g_navigation_start_timeout);
     pnh.param("board1_detection_service", board1_service, board1_service);
     pnh.param("board2_detection_service", board2_service, board2_service);
+    pnh.param("test_audio_file", g_test_audio_file, g_test_audio_file);
+    pnh.param("snapshot_dir", g_snapshot_dir, g_snapshot_dir);
+
+    if (!ensureDirectoryExists(g_snapshot_dir)) {
+        ROS_ERROR("截图保存目录不可用，主程序停止：%s", g_snapshot_dir.c_str());
+        return 1;
+    }
 
     MoveBaseClient move_client("move_base", true);
     ros::Subscriber image_sub = nh.subscribe("/camera/image_raw", 1, snapshotCB);
@@ -608,6 +736,8 @@ int main(int argc, char* argv[]) {
              g_navigation_start_timeout);
     ROS_INFO("视觉服务：board1=%s，board2=%s",
              board1_service.c_str(), board2_service.c_str());
+    ROS_INFO("测试语音文件：%s", g_test_audio_file.c_str());
+    ROS_INFO("截图保存目录：%s", directoryWithTrailingSlash(g_snapshot_dir).c_str());
 
     if (!g_use_mock_data) {
         ROS_INFO("等待二维码识别服务：%s", board1_service.c_str());

@@ -4,6 +4,8 @@
   <arg name="max_rounds" default="1" />
   <arg name="board1_detection_service" default="/yaofang_vision/board1_decode" />
   <arg name="board2_detection_service" default="/yaofang_vision/board2_decode" />
+  <arg name="test_audio_file" default="$(find move_nav)/audio/AC_venous_blood.wav" />
+  <arg name="snapshot_dir" default="/tmp/yaofang_snapshots/" />
 
   <node name="yaofang_control_service_node"
         pkg="move_nav"
@@ -14,5 +16,7 @@
     <param name="max_rounds" value="$(arg max_rounds)" />
     <param name="board1_detection_service" value="$(arg board1_detection_service)" />
     <param name="board2_detection_service" value="$(arg board2_detection_service)" />
+    <param name="test_audio_file" value="$(arg test_audio_file)" />
+    <param name="snapshot_dir" value="$(arg snapshot_dir)" />
   </node>
 </launch>
