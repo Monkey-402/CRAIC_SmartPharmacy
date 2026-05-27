@@ -1,6 +1,11 @@
 <launch>
 
     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen" clear_params="true">
+        <!-- 实车阿克曼：禁用 rotate_recovery，避免设目标后原地兜圈 -->
+        <param name="recovery_behavior_enabled" value="false"/>
+        <!-- 实车 CPU 减负：默认 controller 20Hz 跟不上 -->
+        <param name="controller_frequency" value="5.0"/>
+        <param name="planner_frequency" value="1.0"/>
         <!-- <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS"/> -->
         <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
         <rosparam file="$(find car_sim)/param/base_local_planner_params_TEB.yaml" command="load" />

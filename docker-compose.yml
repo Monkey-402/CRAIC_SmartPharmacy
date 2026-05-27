@@ -7,7 +7,7 @@
 #   docker compose build
 #   docker compose run --rm craic roslaunch car_sim nav_sim.launch
 #
-# 含 control_ws（YOLO + 车牌 OCR）:
+# 含 control_ws:
 #   docker compose build --build-arg BUILD_CONTROL_WS=1
 #   docker compose run --rm craic roslaunch move_nav control.launch
 

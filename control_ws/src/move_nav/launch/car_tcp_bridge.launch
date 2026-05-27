@@ -1,0 +1,19 @@
+<launch>
+  <!-- role: server（监听）或 client（连接对端） -->
+  <arg name="role" default="client" />
+  <arg name="peer_ip" default="192.168.1.102" />
+  <arg name="port" default="9000" />
+  <arg name="send_topic" default="/car_link/send" />
+  <arg name="recv_topic" default="/car_link/recv" />
+
+  <node name="car_tcp_bridge"
+        pkg="move_nav"
+        type="car_tcp_bridge.py"
+        output="screen">
+    <param name="role" value="$(arg role)" />
+    <param name="peer_ip" value="$(arg peer_ip)" />
+    <param name="port" value="$(arg port)" />
+    <param name="send_topic" value="$(arg send_topic)" />
+    <param name="recv_topic" value="$(arg recv_topic)" />
+  </node>
+</launch>

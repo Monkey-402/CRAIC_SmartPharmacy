@@ -17,7 +17,7 @@ roslaunch eprobot_chassis_bringup chassis.launch
 
 ## 与 `craic/nav_real_ws` 联调
 
-在同一 ROS master 上：先本包启动底盘与传感器，再 `topic_remap_ros`，再 `car_sim/nav_real.launch`。
+在同一 ROS master 上：先本包启动底盘与传感器，再 `car_sim/nav_real_hector.launch` 或 `nav_real_amcl.launch`。
 
 ## 说明
 

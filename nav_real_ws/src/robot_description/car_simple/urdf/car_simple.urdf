@@ -99,7 +99,7 @@
   </joint>
 
   <gazebo>
-    <plugin name="mecanum_controller" filename="libgazebo_ros_planar_move.so">
+    <plugin name="ackermann_controller" filename="libgazebo_ros_planar_move.so">
       <commandTopic>cmd_vel</commandTopic>
       <odometryTopic>odom</odometryTopic>
       <odometryFrame>odom</odometryFrame>
@@ -107,7 +107,7 @@
       <wheelSeparationX>0.20</wheelSeparationX>
       <wheelSeparationY>0.20</wheelSeparationY>
       <wheelRadius>0.05</wheelRadius>
-      <motionType>mecanum</motionType>
+      <motionType>ackermann</motionType>
       <odometryRate>30</odometryRate>
       <cmdTimeout>0.5</cmdTimeout>
       <wheelTorque>10.0</wheelTorque>

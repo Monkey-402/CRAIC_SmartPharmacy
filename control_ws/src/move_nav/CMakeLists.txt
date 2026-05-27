@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(move_nav)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -17,11 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   sensor_msgs
   message_generation
-  yolo_onnx_ros
-  license_plate_ocr
 )
 
-find_package(OpenCV 3 REQUIRED)   # 或 3 也行
+find_package(OpenCV REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -55,6 +53,12 @@ find_package(OpenCV 3 REQUIRED)   # 或 3 也行
 ##     and list every .msg/.srv/.action file to be processed
 ##   * uncomment the generate_messages entry below
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
+
+## Generate messages in the 'msg' folder
+add_message_files(
+  FILES
+  JudgementReport.msg
+)
 
 ## Generate services in the 'srv' folder
 add_service_files(
@@ -144,8 +148,6 @@ include_directories(
 # add_executable(move2point src/move2point.cpp)
 add_executable(control_node src/control_node.cpp)
 add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
-set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD 11)
-set_property(TARGET yaofang_control_service_node PROPERTY CXX_STANDARD_REQUIRED ON)
 # add_executable(takePhoto src/takePhoto.cpp)
 
 ## Rename C++ executable without prefix
@@ -183,10 +185,11 @@ target_link_libraries(yaofang_control_service_node
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  scripts/judgement_tcp_sender.py
+  scripts/car_tcp_bridge.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
@@ -215,6 +218,9 @@ target_link_libraries(yaofang_control_service_node
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
+install(DIRECTORY audio/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/audio
+)
 
 #############
 ## Testing ##

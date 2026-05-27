@@ -11,8 +11,12 @@ catkin_package(
 )
 
 catkin_install_python(PROGRAMS
-  qr_decoder.py
-  qr_node.py
-  qr_parser.py
+  scripts/qr_decoder.py
+  scripts/qr_node.py
+  scripts/qr_parser.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY launch
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )

@@ -1,7 +1,0 @@
-<launch>
-    <node name="license_plate_ocr_server" pkg="license_plate_ocr" type="license_plate_server.py" output="screen">
-        <param name="model_path" value="$(find license_plate_ocr)/models/best.onnx" />
-        <param name="conf_thres" value="0.4" />
-        <param name="iou_thres" value="0.5" />
-    </node>
-</launch>

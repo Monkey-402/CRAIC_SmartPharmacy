@@ -5,10 +5,7 @@
     <param name="rgb_in" value="/camera/rgb/image_raw"/>
     <param name="rgb_out" value="/camera/image_raw"/>
 
-    <param name="relay_scan" value="true"/>
-    <param name="scan_in" value="/scan_filtered"/>
-    <param name="scan_out" value="/scan"/>
-    <!-- car_sim costmap 使用 laser_link；实车常为 base_laser_link，按需改 static_tf 或此处 -->
-    <param name="scan_frame_id" value="laser_link"/>
+    <!-- nav 节点已直接订 /scan_filtered + base_laser_link，勿再把滤波结果发回 /scan -->
+    <param name="relay_scan" value="false"/>
   </node>
 </launch>

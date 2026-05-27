@@ -12,14 +12,13 @@
   - 快速启动见：`nav_sim_ws/QUICKSTART.md`
 
 - `control_ws`：任务控制与业务编排工作空间
-  - 导航任务编排与视觉任务分发
-  - 支持人物识别、车牌识别等服务式接入
+  - 导航任务编排与视觉任务分发（话题接口）
   - 当前推荐开发入口：`control_ws/src/move_nav/src/control_node.cpp`
   - 详细说明见：`control_ws/README.md`
 
 - `nav_real_ws`：实机导航工作空间（由 `nav_sim_ws` 复制，**默认不启 Gazebo**）
   - 入口：`car_sim/launch/nav_real.launch`（map_server + AMCL + move_base）
-  - 话题对齐：`topic_remap_ros`（实车 `robot_ws` 话题名 → craic 常用名）
+  - 激光直接用实车 `/scan_filtered`（`base_laser_link`）；相机话题对齐可选 `topic_remap_ros`
   - 说明见：`nav_real_ws/NAV_REAL_WS.md`
 
 - `robot_ws`：模板工作空间，仅含底盘启动包 `eprobot_chassis_bringup`，可复制到实车 `catkin_ws` 与 `eprobot_start` 等合并使用
