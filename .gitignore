@@ -5,3 +5,7 @@ control_ws/build/
 control_ws/devel/
 nav_real_ws/build/
 nav_real_ws/devel/
+
+# Python cache files
+__pycache__/
+*.pyc
