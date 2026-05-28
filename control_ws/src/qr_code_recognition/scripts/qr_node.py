@@ -9,7 +9,7 @@ import rospy
 
 from move_nav.srv import Board1Decode, Board1DecodeResponse
 
-from qr_decoder import decode_qr
+from qr_decoder import FrameDetectParams, decode_qr
 from qr_parser import parse_qr
 
 
@@ -60,6 +60,7 @@ class QRNode:
             "~image_ready_poll_sec",
             0.01,
         )
+        self.frame_params = FrameDetectParams.from_rosparam(rospy)
         self.service = rospy.Service(
             service_name,
             Board1Decode,
@@ -67,6 +68,15 @@ class QRNode:
         )
 
         rospy.loginfo("QR board1 decode service started: %s", service_name)
+        rospy.loginfo(
+            "Frame detect params: aspect=[%.2f, %.2f] area=[%.3f, %.3f] "
+            "crop_margin=%.2f",
+            self.frame_params.aspect_min,
+            self.frame_params.aspect_max,
+            self.frame_params.min_area_ratio,
+            self.frame_params.max_area_ratio,
+            self.frame_params.crop_margin_ratio,
+        )
 
     def handle_board1_decode(self, req):
         rospy.loginfo("Receive board1 decode request: image_path=%s", req.image_path)
@@ -81,7 +91,11 @@ class QRNode:
             return Board1DecodeResponse(False, False, False, 0, 0)
 
         try:
-            qr_list = decode_qr(image, source_image_path=req.image_path)
+            qr_list = decode_qr(
+                image,
+                source_image_path=req.image_path,
+                params=self.frame_params,
+            )
         except Exception as exc:
             rospy.logerr("QR decode failed: %s", exc)
             return Board1DecodeResponse(False, False, False, 0, 0)

@@ -8,6 +8,63 @@ import cv2
 from pyzbar.pyzbar import decode as pyzbar_decode
 
 
+class FrameDetectParams(object):
+    """黑框检测阈值（默认已略放宽，可在 launch 中覆盖）。"""
+
+    def __init__(
+        self,
+        min_area_ratio=0.018,
+        max_area_ratio=0.48,
+        inner_max_area_ratio=0.42,
+        aspect_min=0.60,
+        aspect_max=1.55,
+        min_side=30,
+        approx_eps_ratio=0.05,
+        area_similar_min=0.35,
+        area_similar_max=2.8,
+        dedupe_dist_thresh=20,
+        crop_margin_ratio=0.05,
+        morph_close_iters=2,
+    ):
+        self.min_area_ratio = min_area_ratio
+        self.max_area_ratio = max_area_ratio
+        self.inner_max_area_ratio = inner_max_area_ratio
+        self.aspect_min = aspect_min
+        self.aspect_max = aspect_max
+        self.min_side = min_side
+        self.approx_eps_ratio = approx_eps_ratio
+        self.area_similar_min = area_similar_min
+        self.area_similar_max = area_similar_max
+        self.dedupe_dist_thresh = dedupe_dist_thresh
+        self.crop_margin_ratio = crop_margin_ratio
+        self.morph_close_iters = morph_close_iters
+
+    @classmethod
+    def from_rosparam(cls, node_handle=None):
+        if node_handle is None:
+            import rospy
+            node_handle = rospy
+
+        return cls(
+            min_area_ratio=node_handle.get_param("~min_area_ratio", 0.018),
+            max_area_ratio=node_handle.get_param("~max_area_ratio", 0.48),
+            inner_max_area_ratio=node_handle.get_param(
+                "~inner_max_area_ratio", 0.42
+            ),
+            aspect_min=node_handle.get_param("~aspect_min", 0.60),
+            aspect_max=node_handle.get_param("~aspect_max", 1.55),
+            min_side=int(node_handle.get_param("~min_side", 30)),
+            approx_eps_ratio=node_handle.get_param("~approx_eps_ratio", 0.05),
+            area_similar_min=node_handle.get_param("~area_similar_min", 0.35),
+            area_similar_max=node_handle.get_param("~area_similar_max", 2.8),
+            dedupe_dist_thresh=node_handle.get_param("~dedupe_dist_thresh", 20),
+            crop_margin_ratio=node_handle.get_param("~crop_margin_ratio", 0.05),
+            morph_close_iters=int(
+                node_handle.get_param("~morph_close_iters", 2)
+            ),
+        )
+
+
 def _find_contours(binary):
     result = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if len(result) == 3:
@@ -32,7 +89,7 @@ def _crop_paths_for_source(source_image_path):
     return {slot: "%s_slot%d.jpg" % (base, slot) for slot in (1, 2, 3, 4)}
 
 
-def _crop_inset(image, x, y, w, h, margin_ratio=0.08):
+def _crop_inset(image, x, y, w, h, margin_ratio):
     mx = max(2, int(w * margin_ratio))
     my = max(2, int(h * margin_ratio))
     x1 = max(0, x + mx)
@@ -67,39 +124,43 @@ def _sort_frames_to_slots(rects):
     return [(int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in ordered]
 
 
-def _is_squareish(w, h):
+def _is_squareish(w, h, params):
     if h <= 0:
         return False
     ratio = w / float(h)
-    return 0.72 <= ratio <= 1.38
+    return params.aspect_min <= ratio <= params.aspect_max
 
 
-def _rect_from_contour(cnt):
+def _rect_from_contour(cnt, params):
     peri = cv2.arcLength(cnt, True)
-    approx = cv2.approxPolyDP(cnt, 0.03 * peri, True)
+    approx = cv2.approxPolyDP(cnt, params.approx_eps_ratio * peri, True)
     if len(approx) == 4 and cv2.isContourConvex(approx):
         x, y, w, h = cv2.boundingRect(approx)
     else:
         x, y, w, h = cv2.boundingRect(cnt)
 
-    if w < 40 or h < 40 or not _is_squareish(w, h):
+    if w < params.min_side or h < params.min_side:
+        return None
+    if not _is_squareish(w, h, params):
         return None
     return (x, y, w, h)
 
 
-def _collect_frame_rects(contours, img_area):
+def _collect_frame_rects(contours, img_area, params):
     rects = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if area < img_area * 0.025 or area > img_area * 0.42:
+        if area < img_area * params.min_area_ratio:
             continue
-        rect = _rect_from_contour(cnt)
+        if area > img_area * params.max_area_ratio:
+            continue
+        rect = _rect_from_contour(cnt, params)
         if rect is not None:
             rects.append(rect)
     return rects
 
 
-def _dedupe_rects(rects, dist_thresh=25):
+def _dedupe_rects(rects, dist_thresh):
     rects = sorted(rects, key=lambda r: r[2] * r[3], reverse=True)
     kept = []
     for rect in rects:
@@ -115,12 +176,15 @@ def _dedupe_rects(rects, dist_thresh=25):
     return kept
 
 
-def _pick_four_frame_rects(rects, img_area):
-    rects = _dedupe_rects(rects)
+def _pick_four_frame_rects(rects, img_area, params):
+    rects = _dedupe_rects(rects, params.dedupe_dist_thresh)
     if len(rects) < 4:
         return None
 
-    inner = [r for r in rects if r[2] * r[3] < img_area * 0.36]
+    inner = [
+        r for r in rects
+        if r[2] * r[3] < img_area * params.inner_max_area_ratio
+    ]
     if len(inner) >= 4:
         rects = inner
 
@@ -131,7 +195,9 @@ def _pick_four_frame_rects(rects, img_area):
     ref_area = rects[0][2] * rects[0][3]
     similar = [
         r for r in rects
-        if ref_area * 0.45 <= (r[2] * r[3]) <= ref_area * 2.2
+        if ref_area * params.area_similar_min
+        <= (r[2] * r[3])
+        <= ref_area * params.area_similar_max
     ]
     if len(similar) < 4:
         return None
@@ -140,8 +206,9 @@ def _pick_four_frame_rects(rects, img_area):
     return _sort_frames_to_slots(similar)
 
 
-def detect_four_frames(image):
-    """黑框轮廓检测四个窗口，顺序为 slot 1–4；失败返回 None。"""
+def detect_four_frames(image, params=None):
+    if params is None:
+        params = FrameDetectParams()
     if image is None or image.size == 0:
         return None
 
@@ -150,23 +217,25 @@ def detect_four_frames(image):
     _, inv = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
     img_area = float(gray.shape[0] * gray.shape[1])
-    kernels = (
-        cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)),
-        cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9)),
-        cv2.getStructuringElement(cv2.MORPH_RECT, (13, 13)),
-    )
+    kernel_sizes = (5, 9, 13, 15)
 
-    for k in kernels:
-        mask = cv2.morphologyEx(inv, cv2.MORPH_CLOSE, k, iterations=2)
+    for ksize in kernel_sizes:
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
+        mask = cv2.morphologyEx(
+            inv,
+            cv2.MORPH_CLOSE,
+            kernel,
+            iterations=params.morph_close_iters,
+        )
         contours = _find_contours(mask)
-        rects = _collect_frame_rects(contours, img_area)
-        picked = _pick_four_frame_rects(rects, img_area)
+        rects = _collect_frame_rects(contours, img_area, params)
+        picked = _pick_four_frame_rects(rects, img_area, params)
         if picked is not None:
             return picked
 
     contours = _find_contours(inv)
-    rects = _collect_frame_rects(contours, img_area)
-    return _pick_four_frame_rects(rects, img_area)
+    rects = _collect_frame_rects(contours, img_area, params)
+    return _pick_four_frame_rects(rects, img_area, params)
 
 
 def _decode_text_from_crop(crop):
@@ -186,19 +255,22 @@ def _decode_text_from_crop(crop):
     return None
 
 
-def decode_qr(image, source_image_path=None):
+def decode_qr(image, source_image_path=None, params=None):
+    if params is None:
+        params = FrameDetectParams()
+
     crop_paths = None
     if source_image_path:
         crop_paths = _crop_paths_for_source(source_image_path)
         _ensure_dir(os.path.dirname(source_image_path))
 
-    frames = detect_four_frames(image)
+    frames = detect_four_frames(image, params)
     if frames is None:
         return []
 
     qr_list = []
     for slot_index, (x, y, w, h) in enumerate(frames, start=1):
-        crop = _crop_inset(image, x, y, w, h)
+        crop = _crop_inset(image, x, y, w, h, params.crop_margin_ratio)
         if crop_paths is not None:
             cv2.imwrite(crop_paths[slot_index], crop)
 
