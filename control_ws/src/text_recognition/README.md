@@ -20,8 +20,8 @@
 ## 安装依赖
 
 apt-get update
-apt-get install tesseract-ocr tesseract-ocr-chi-sim -y
-pip3 install pytesseract numpy opencv-python
+apt-get install tesseract-ocr tesseract-ocr-chi-sim python-opencv python-pip -y
+pip2 install 'pytesseract==0.2.9'
 
 ## 运行
 

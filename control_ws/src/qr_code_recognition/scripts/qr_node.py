@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import os
@@ -13,11 +13,19 @@ from qr_decoder import decode_qr
 from qr_parser import parse_qr
 
 
+def _monotonic():
+    # Python 2.7 (ROS Melodic) has no time.monotonic().
+    try:
+        return time.monotonic()
+    except AttributeError:
+        return time.time()
+
+
 def _read_image_when_ready(image_path, timeout_sec, poll_sec):
-    deadline = time.monotonic() + timeout_sec
+    deadline = _monotonic() + timeout_sec
     last_size = -1
 
-    while time.monotonic() < deadline:
+    while _monotonic() < deadline:
         try:
             current_size = os.path.getsize(image_path)
         except OSError:
@@ -72,12 +80,18 @@ class QRNode:
             rospy.logerr("Image load failed: %s", req.image_path)
             return Board1DecodeResponse(False, False, False, 0, 0)
 
-        # decode_qr 负责识别所有二维码并根据中心点推断 slot；parse_qr 再按比赛规则选出一个结果。
         try:
-            qr_list = decode_qr(image)
+            qr_list = decode_qr(image, source_image_path=req.image_path)
         except Exception as exc:
             rospy.logerr("QR decode failed: %s", exc)
             return Board1DecodeResponse(False, False, False, 0, 0)
+
+        if req.image_path:
+            base, _ext = os.path.splitext(req.image_path)
+            if os.path.isfile(base + "_slot1.jpg"):
+                rospy.loginfo("Frame crops saved: %s_slot[1-4].jpg", base)
+            elif not qr_list:
+                rospy.logwarn("Black frame detection failed for: %s", req.image_path)
 
         rospy.loginfo("QR raw result: %s", qr_list)
         for qr in qr_list:

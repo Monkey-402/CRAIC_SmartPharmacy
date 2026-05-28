@@ -82,7 +82,7 @@ const std::vector<GoalTask> GOAL_LIST = {
 ros::ServiceClient g_board1_client;
 ros::ServiceClient g_board2_client;
 std::string g_audio_dir = "audio";
-std::string g_snapshot_dir = "/tmp/yaofang_snapshots/";
+std::string g_snapshot_dir = "/root/craic/control_ws/snapshots/";
 
 static std::atomic<int> g_img_idx(0);// 图像序号计数器
 static std::atomic<int> g_active_task(NoVisionTask);// 视觉服务开关
@@ -717,6 +717,8 @@ int main(int argc, char* argv[]) {
     pnh.param("board2_detection_service", board2_service, board2_service);
     pnh.param("audio_dir", g_audio_dir, g_audio_dir);
     pnh.param("snapshot_dir", g_snapshot_dir, g_snapshot_dir);
+    std::string image_topic = "/camera/image_raw";
+    pnh.param("image_topic", image_topic, image_topic);
 
     if (!ensureDirectoryExists(g_snapshot_dir)) {
         ROS_ERROR("截图保存目录不可用，主程序停止：%s", g_snapshot_dir.c_str());
@@ -724,7 +726,7 @@ int main(int argc, char* argv[]) {
     }
 
     MoveBaseClient move_client("move_base", true);
-    ros::Subscriber image_sub = nh.subscribe("/camera/image_raw", 1, snapshotCB);
+    ros::Subscriber image_sub = nh.subscribe(image_topic, 1, snapshotCB);
     g_board1_client = nh.serviceClient<move_nav::Board1Decode>(board1_service);
     g_board2_client = nh.serviceClient<move_nav::Board2Decode>(board2_service);
 
@@ -740,6 +742,7 @@ int main(int argc, char* argv[]) {
              board1_service.c_str(), board2_service.c_str());
     ROS_INFO("语音目录：%s", directoryWithTrailingSlash(g_audio_dir).c_str());
     ROS_INFO("截图保存目录：%s", directoryWithTrailingSlash(g_snapshot_dir).c_str());
+    ROS_INFO("图像订阅话题：%s", image_topic.c_str());
 
     if (!g_use_mock_data) {
         ROS_INFO("等待二维码识别服务：%s", board1_service.c_str());

@@ -7,17 +7,14 @@
 #   docker compose build
 #   docker compose run --rm craic roslaunch car_sim nav_sim.launch
 #
-# 含 control_ws:
-#   docker compose build --build-arg BUILD_CONTROL_WS=1
-#   docker compose run --rm craic roslaunch move_nav control.launch
+# 药房控制（control_ws，已默认编入镜像）:
+#   docker compose run --rm craic bash -lc 'source /root/craic/control_ws/devel/setup.bash && roslaunch move_nav control.launch'
 
 services:
   craic:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        BUILD_CONTROL_WS: ${BUILD_CONTROL_WS:-0}
     image: craic:melodic
     container_name: craic
     network_mode: host
@@ -30,6 +27,7 @@ services:
       - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - .:/root/craic:rw
       - craic-snapshots:/root/snapshots
     working_dir: /root/craic
 

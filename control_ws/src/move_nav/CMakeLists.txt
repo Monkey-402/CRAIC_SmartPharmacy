@@ -188,7 +188,12 @@ target_link_libraries(yaofang_control_service_node
 catkin_install_python(PROGRAMS
   scripts/judgement_tcp_sender.py
   scripts/car_tcp_bridge.py
+  scripts/test_image_publisher.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY test_assets
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
 ## Mark executables for installation

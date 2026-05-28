@@ -5,7 +5,8 @@
   <arg name="board1_detection_service" default="/yaofang_vision/board1_decode" />
   <arg name="board2_detection_service" default="/yaofang_vision/board2_decode" />
   <arg name="audio_dir" default="$(find move_nav)/audio" />
-  <arg name="snapshot_dir" default="/tmp/yaofang_snapshots/" />
+  <arg name="snapshot_dir" default="$(find move_nav)/../snapshots/" />
+  <arg name="image_topic" default="/camera/image_raw" />
 
   <node name="yaofang_control_service_node"
         pkg="move_nav"
@@ -18,5 +19,6 @@
     <param name="board2_detection_service" value="$(arg board2_detection_service)" />
     <param name="audio_dir" value="$(arg audio_dir)" />
     <param name="snapshot_dir" value="$(arg snapshot_dir)" />
+    <param name="image_topic" value="$(arg image_topic)" />
   </node>
 </launch>
