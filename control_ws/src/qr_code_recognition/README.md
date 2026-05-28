@@ -45,3 +45,19 @@ roslaunch qr_code_recognition qr.launch
 ```
 
 默认服务名：`/yaofang_vision/board1_decode`。
+
+### 黑框检测参数（`qr.launch`）
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `aspect_min` / `aspect_max` | 0.60 / 1.55 | 宽高比，透视大时调宽 |
+| `min_area_ratio` / `max_area_ratio` | 0.018 / 0.48 | 轮廓面积占整图比例 |
+| `crop_margin_ratio` | 0.05 | 裁剪内缩，码被切掉时改小 |
+| `area_similar_min` / `max` | 0.35 / 2.8 | 四个框面积允许差异 |
+
+示例：
+
+```bash
+roslaunch qr_code_recognition qr.launch aspect_max:=1.65 crop_margin_ratio:=0.04
+```
+
