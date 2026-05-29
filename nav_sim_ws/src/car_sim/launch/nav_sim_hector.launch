@@ -1,0 +1,21 @@
+<launch>
+  <!-- 仿真：Hector 在线建图 + move_base（TEB），无需 map_server / AMCL。
+       RViz：2D Nav Goal 导航；建图完成后 map_save.launch 保存地图。 -->
+
+  <param name="/use_sim_time" value="true" />
+
+  <include file="$(find car_sim)/launch/car_urdf.launch"/>
+
+  <include file="$(find car_sim)/launch/hector.launch"/>
+  <include file="$(find car_sim)/launch/move_base.launch"/>
+
+  <!-- 可选：键盘控车（与 move_base 同时用时勿抢 /cmd_vel） -->
+  <!--
+  <node pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" name="teleop" output="screen">
+    <remap from="cmd_vel" to="/cmd_vel"/>
+  </node>
+  -->
+
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find car_sim)/rviz/nav.rviz" />
+
+</launch>

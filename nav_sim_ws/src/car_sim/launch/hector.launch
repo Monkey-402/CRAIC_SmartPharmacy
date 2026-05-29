@@ -25,7 +25,7 @@
     
     <param name="transform_tolerance" value="0.1" />
 
-    <param name="initial_yaw" value="3.14159" />
+    <param name="initial_yaw" value="0.0" />
 
     <!-- ############################# 地图参数 ############################# -->
     <!-- 地图分辨率 (米/像素) -->
