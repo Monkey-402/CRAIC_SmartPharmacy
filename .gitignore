@@ -9,3 +9,7 @@ nav_real_ws/devel/
 # Python cache files
 __pycache__/
 *.pyc
+
+# Runtime snapshots and QR crops
+control_ws/snapshots/*
+!control_ws/snapshots/.gitkeep

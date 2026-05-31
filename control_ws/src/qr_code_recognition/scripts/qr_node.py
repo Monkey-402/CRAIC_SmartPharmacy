@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import os
@@ -9,15 +9,23 @@ import rospy
 
 from move_nav.srv import Board1Decode, Board1DecodeResponse
 
-from qr_decoder import decode_qr
+from qr_decoder import FrameDetectParams, decode_qr
 from qr_parser import parse_qr
 
 
+def _monotonic():
+    # Python 2.7 (ROS Melodic) has no time.monotonic().
+    try:
+        return time.monotonic()
+    except AttributeError:
+        return time.time()
+
+
 def _read_image_when_ready(image_path, timeout_sec, poll_sec):
-    deadline = time.monotonic() + timeout_sec
+    deadline = _monotonic() + timeout_sec
     last_size = -1
 
-    while time.monotonic() < deadline:
+    while _monotonic() < deadline:
         try:
             current_size = os.path.getsize(image_path)
         except OSError:
@@ -52,6 +60,7 @@ class QRNode:
             "~image_ready_poll_sec",
             0.01,
         )
+        self.frame_params = FrameDetectParams.from_rosparam(rospy)
         self.service = rospy.Service(
             service_name,
             Board1Decode,
@@ -59,6 +68,15 @@ class QRNode:
         )
 
         rospy.loginfo("QR board1 decode service started: %s", service_name)
+        rospy.loginfo(
+            "Frame detect params: aspect=[%.2f, %.2f] area=[%.3f, %.3f] "
+            "crop_margin=%.2f",
+            self.frame_params.aspect_min,
+            self.frame_params.aspect_max,
+            self.frame_params.min_area_ratio,
+            self.frame_params.max_area_ratio,
+            self.frame_params.crop_margin_ratio,
+        )
 
     def handle_board1_decode(self, req):
         rospy.loginfo("Receive board1 decode request: image_path=%s", req.image_path)
@@ -72,12 +90,22 @@ class QRNode:
             rospy.logerr("Image load failed: %s", req.image_path)
             return Board1DecodeResponse(False, False, False, 0, 0)
 
-        # decode_qr 负责识别所有二维码并根据中心点推断 slot；parse_qr 再按比赛规则选出一个结果。
         try:
-            qr_list = decode_qr(image)
+            qr_list = decode_qr(
+                image,
+                source_image_path=req.image_path,
+                params=self.frame_params,
+            )
         except Exception as exc:
             rospy.logerr("QR decode failed: %s", exc)
             return Board1DecodeResponse(False, False, False, 0, 0)
+
+        if req.image_path:
+            base, _ext = os.path.splitext(req.image_path)
+            if os.path.isfile(base + "_slot1.jpg"):
+                rospy.loginfo("Frame crops saved: %s_slot[1-4].jpg", base)
+            elif not qr_list:
+                rospy.logwarn("Black frame detection failed for: %s", req.image_path)
 
         rospy.loginfo("QR raw result: %s", qr_list)
         for qr in qr_list:

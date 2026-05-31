@@ -62,6 +62,48 @@ source devel/setup.bash
 roslaunch move_nav control.launch
 ```
 
+### Melodic 视觉依赖（Python 2）
+
+`control.launch` 中的二维码 / OCR 节点面向 **ROS Melodic（Python 2.7）**，请勿使用 `apt install python3-rospkg`（会与系统 `python-rospkg` 冲突）。
+
+小车或开发机执行一次：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  tesseract-ocr tesseract-ocr-chi-sim \
+  libzbar0 python-opencv python-pip
+sudo pip2 install 'pytesseract==0.2.9' 'pyzbar==0.1.8'
+```
+
+### 测试图像（模拟摄像头，与 control 分开启动）
+
+默认主控订阅实车 **`/camera/image_raw`**。离线测识别时开**两个终端**：
+
+**终端 1**（主控 + 视觉，常驻）：
+
+```bash
+source devel/setup.bash
+roslaunch move_nav control.launch \
+  image_topic:=/yaofang_test/image_raw \
+  mock_navigation:=true max_rounds:=1
+```
+
+**终端 2**（测试图发布，可随时 Ctrl+C 重启换图）：
+
+```bash
+source devel/setup.bash
+roslaunch move_nav test_image_publisher.launch
+# 换图示例：
+# roslaunch move_nav test_image_publisher.launch image_path:=/path/to/other.png
+```
+
+实车（只用真相机，不启终端 2）：
+
+```bash
+roslaunch move_nav control.launch
+```
+
 ---
 
 ## 裁判软件 TCP 上报（judgement_tcp_sender）
@@ -210,6 +252,6 @@ rostopic echo /car_link/recv
 
 在正式比赛或部署前，建议统一检查：
 
-- 抓图保存目录与权限（如 `/root/snapshots`）
-- 摄像头话题名（如 `/camera/image_raw`）
+- 抓图保存目录与权限：默认 `control_ws/snapshots/`（QR 裁剪 `*_slot1..4.jpg` 同目录）
+- 摄像头话题名：默认 `/camera/image_raw`；测试时 `/yaofang_test/image_raw`
 - 地图/world 与导航参数匹配

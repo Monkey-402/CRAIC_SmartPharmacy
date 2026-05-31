@@ -42,7 +42,7 @@ TebLocalPlannerROS:
   # 到达目标的位置容差 (m)。到达该范围内即认为已到达。
   xy_goal_tolerance: 0.2
   # 到达目标的角度容差 (rad)。到达该范围内即认为已对准。
-  yaw_goal_tolerance: 0.35
+  yaw_goal_tolerance: 0.1
   # true: 到达目标时不强制减速到0。
   free_goal_vel: false
 

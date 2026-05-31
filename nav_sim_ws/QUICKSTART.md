@@ -84,11 +84,7 @@ cd ~/craic    # 或你的 craic 仓库路径
 docker build -t craic:melodic .
 ```
 
-可选：同时编译 `control_ws`（体积更大、耗时更长）：
-
-```bash
-docker build -t craic:melodic --build-arg BUILD_CONTROL_WS=1 .
-```
+镜像构建时会一并编译 `control_ws`（含 Python 2 的 OCR / 二维码依赖）。
 
 ### 7.3) 允许 GUI（Gazebo / RViz）
 
@@ -104,12 +100,15 @@ export LIBGL_ALWAYS_SOFTWARE=1
 
 ### 7.4) 进入容器终端
 
+将宿主机 `~/craic` 挂载到容器内 `/root/craic`，改代码后可在容器内 `catkin_make`，无需每次重建镜像：
+
 ```bash
 docker run --rm -it \
   --net=host \
   -e DISPLAY=$DISPLAY \
   -e QT_X11_NO_MITSHM=1 \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v ~/CAIR/craic:/root/craic \
   craic:melodic bash
 ```
 
@@ -130,6 +129,7 @@ docker run --rm -it \
   -e DISPLAY=$DISPLAY \
   -e QT_X11_NO_MITSHM=1 \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v ~/craic:/root/craic \
   craic:melodic \
   roslaunch car_sim nav_sim.launch
 ```
@@ -147,12 +147,21 @@ docker compose run --rm craic roslaunch car_sim nav_sim.launch
 
 ### 7.6) 修改代码后
 
-容器内源码在 `/root/craic/`。在宿主机改完代码后需**重新构建镜像**：
+容器内源码在 `/root/craic/`。
 
-```bash
-cd ~/craic
-docker build -t craic:melodic .
-```
+- **已按 7.4 挂载 `~/craic`**：在容器内重新编译即可：
+
+  ```bash
+  cd /root/craic/nav_sim_ws && catkin_make
+  source /root/craic/nav_sim_ws/devel/setup.bash
+  ```
+
+- **未挂载卷**（仅用镜像内快照）：在宿主机改完代码后需**重新构建镜像**：
+
+  ```bash
+  cd ~/craic
+  docker build -t craic:melodic .
+  ```
 
 ### 7.7) 常见问题
 

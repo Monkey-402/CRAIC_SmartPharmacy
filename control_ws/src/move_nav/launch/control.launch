@@ -14,8 +14,10 @@
   <arg name="max_rounds" default="0" />
   <!-- 语音目录：用包路径展开，避免不同队员工作区根目录不一致。 -->
   <arg name="audio_dir" default="$(find move_nav)/audio" />
-  <!-- 截图保存目录：默认使用 /tmp，避免依赖某个队员的 home 路径。 -->
-  <arg name="snapshot_dir" default="/tmp/yaofang_snapshots/" />
+  <!-- 截图与 QR 裁剪图保存在 control_ws/snapshots（与 src 同级） -->
+  <arg name="snapshot_dir" default="$(find move_nav)/../snapshots/" />
+  <!-- 默认真车 /camera/image_raw；用测试图时在另一终端单独 roslaunch test_image_publisher.launch，并设 image_topic:=/yaofang_test/image_raw -->
+  <arg name="image_topic" default="/camera/image_raw" />
 
   <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
   <arg name="qr_image_ready_timeout_sec" default="0.2" />
@@ -58,5 +60,6 @@
     <param name="vision_service_wait_timeout" value="$(arg vision_service_wait_timeout)" />
     <param name="audio_dir" value="$(arg audio_dir)" />
     <param name="snapshot_dir" value="$(arg snapshot_dir)" />
+    <param name="image_topic" value="$(arg image_topic)" />
   </node>
 </launch>
