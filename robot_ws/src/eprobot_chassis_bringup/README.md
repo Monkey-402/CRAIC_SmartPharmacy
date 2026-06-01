@@ -24,7 +24,8 @@ roslaunch eprobot_chassis_bringup chassis.launch
 # 开启深度（按需）：
 roslaunch eprobot_chassis_bringup chassis.launch camera_enable_depth:=true
 
-# camera_color_mode（astra_camera/cfg/Astra.cfg）：5=640x480@30，3=1280x720@30，1=1280x1024@30
+# camera_color_mode（Astra.cfg）：5=640x480@30（默认），15=1280x960@7（需 patches/），3=1280x720@30
+# roslaunch eprobot_chassis_bringup chassis.launch camera_color_mode:=15
 
 # 出厂镜像 /dev/video0 可用时改回 UVC：
 roslaunch eprobot_chassis_bringup chassis.launch camera_driver:=uvc

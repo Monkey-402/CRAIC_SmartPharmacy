@@ -176,6 +176,30 @@ def _dedupe_rects(rects, dist_thresh):
     return kept
 
 
+def _group_four_similar_by_area(rects, params):
+    """Pick 4 rects with mutually similar area (smallest qualifying group first)."""
+    if len(rects) < 4:
+        return None
+
+    by_area = sorted(rects, key=lambda r: r[2] * r[3])
+    for start in range(len(by_area) - 3):
+        group = by_area[start : start + 4]
+        areas = [r[2] * r[3] for r in group]
+        ref = max(areas)
+        if min(areas) < ref * params.area_similar_min:
+            continue
+        if max(areas) > ref * params.area_similar_max:
+            continue
+        return _sort_frames_to_slots(group)
+
+    smallest = by_area[:4]
+    areas = [r[2] * r[3] for r in smallest]
+    ref = max(areas)
+    if min(areas) >= ref * params.area_similar_min:
+        return _sort_frames_to_slots(smallest)
+    return None
+
+
 def _pick_four_frame_rects(rects, img_area, params):
     rects = _dedupe_rects(rects, params.dedupe_dist_thresh)
     if len(rects) < 4:
@@ -190,6 +214,11 @@ def _pick_four_frame_rects(rects, img_area, params):
 
     if len(rects) == 4:
         return _sort_frames_to_slots(rects)
+
+    # Poster / floor blobs are often largest; four cells are a similar smaller cluster.
+    grouped = _group_four_similar_by_area(rects, params)
+    if grouped is not None:
+        return grouped
 
     rects = sorted(rects, key=lambda r: r[2] * r[3], reverse=True)
     ref_area = rects[0][2] * rects[0][3]

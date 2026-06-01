@@ -21,6 +21,7 @@ class A4FrameParams(object):
         approx_eps_ratio=0.04,
         crop_margin_ratio=0.04,
         morph_close_iters=2,
+        dark_mask_threshold=120,
     ):
         self.min_area_ratio = min_area_ratio
         self.max_area_ratio = max_area_ratio
@@ -30,6 +31,7 @@ class A4FrameParams(object):
         self.approx_eps_ratio = approx_eps_ratio
         self.crop_margin_ratio = crop_margin_ratio
         self.morph_close_iters = morph_close_iters
+        self.dark_mask_threshold = dark_mask_threshold
 
     @classmethod
     def from_rosparam(cls, node_handle=None):
@@ -50,15 +52,19 @@ class A4FrameParams(object):
             morph_close_iters=int(
                 node_handle.get_param("~frame_morph_close_iters", 2)
             ),
+            dark_mask_threshold=int(
+                node_handle.get_param("~dark_mask_threshold", 120)
+            ),
         )
 
 
 class A4FrameResult(object):
-    __slots__ = ("rect", "error_message")
+    __slots__ = ("rect", "error_message", "dark_mask")
 
-    def __init__(self, rect=None, error_message=""):
+    def __init__(self, rect=None, error_message="", dark_mask=None):
         self.rect = rect
         self.error_message = error_message
+        self.dark_mask = dark_mask
 
     @property
     def ok(self):
@@ -139,17 +145,39 @@ def _crop_inset(image, x, y, w, h, margin_ratio):
     return image[y1:y2, x1:x2]
 
 
+def apply_dark_mask(image, threshold=120):
+    """较暗像素置黑、其余置白（颜色遮罩，非 Otsu/自适应二值化）。
+
+    返回 (bgr_vis, gray_mask)，mask 中 0=暗色保留，255=背景白。
+    """
+    if image is None or image.size == 0:
+        return None, None
+
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
+
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, mask = cv2.threshold(blur, threshold, 255, cv2.THRESH_BINARY)
+    bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+    return bgr, mask
+
+
 def detect_a4_frame(image, params=None):
     if params is None:
         params = A4FrameParams()
     if image is None or image.size == 0:
         return A4FrameResult(error_message="frame_detect_failed: 空图像")
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, inv = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    _masked_bgr, dark_mask = apply_dark_mask(image, params.dark_mask_threshold)
+    if dark_mask is None:
+        return A4FrameResult(error_message="frame_detect_failed: 空图像")
 
-    img_area = float(gray.shape[0] * gray.shape[1])
+    # 暗区变白，便于在遮罩上找黑框轮廓
+    inv = cv2.bitwise_not(dark_mask)
+
+    img_area = float(dark_mask.shape[0] * dark_mask.shape[1])
     best_rect = None
 
     for ksize in (5, 9, 13, 15, 19):
@@ -175,9 +203,10 @@ def detect_a4_frame(image, params=None):
     if best_rect is None:
         return A4FrameResult(
             error_message="frame_detect_failed: 未检测到 A4 比例黑框",
+            dark_mask=dark_mask,
         )
 
-    return A4FrameResult(rect=best_rect)
+    return A4FrameResult(rect=best_rect, dark_mask=dark_mask)
 
 
 def crop_a4_frame(image, params=None):

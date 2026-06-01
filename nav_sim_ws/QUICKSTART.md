@@ -48,6 +48,13 @@ cp src/car_sim/map/map_sim.{pgm,yaml} ../nav_real_ws/src/car_sim/map/
 
 `sim_sensor_bridge.launch` 将 Gazebo 的 `/scan`、`/imu/data` 对齐为实车的 `/scan_filtered`、`/imu_data`，并发布 `laser_link→base_laser_link`、`imu_link→IMU_link` 静态 TF。
 
+RGB 相机：`car_simple.urdf` 为 **640×480@30Hz**，话题 **`/camera/rgb/image_raw`**。药房主控请用仿真专用 launch（放宽 QR 黑框检测）：
+
+```bash
+source ~/craic/control_ws/devel/setup.bash
+roslaunch move_nav control_sim.launch
+```
+
 ## 4) 在 RViz 里常用操作
 
 - 使用 `2D Pose Estimate` 设置初始位姿

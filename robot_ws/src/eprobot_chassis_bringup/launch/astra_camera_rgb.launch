@@ -1,7 +1,7 @@
 <launch>
   <!-- OpenNI2 → /camera/rgb/image_raw（树莓派无 /dev/video0 时用此方式，勿与 uvc 同启） -->
   <arg name="enable_depth" default="false" doc="false=仅 RGB，减轻 Pi 负载"/>
-  <!-- color_mode 见 astra_camera/cfg/Astra.cfg；默认 5=640x480@30；3=1280x720@30 在 Pi 上易花屏 -->
+  <!-- color_mode 见 astra_camera/cfg/Astra.cfg；默认 5=640x480@30 -->
   <arg name="color_mode" default="5"/>
 
   <!-- 须在 driver nodelet 启动前写入，作为 dynamic_reconfigure 初值 -->

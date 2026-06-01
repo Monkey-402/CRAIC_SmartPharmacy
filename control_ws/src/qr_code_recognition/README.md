@@ -42,11 +42,16 @@ cd control_ws
 catkin_make
 source devel/setup.bash
 roslaunch qr_code_recognition qr.launch
+# Gazebo：roslaunch move_nav control_sim.launch
 ```
 
 默认服务名：`/yaofang_vision/board1_decode`。
 
-### 黑框检测参数（`qr.launch`）
+### 黑框检测参数（`qr.launch` / `control.launch` 的 `qr_*`）
+
+`qr_sim_mode:=true`（见 `control_sim.launch`）时示例：`min_area_ratio=0.003`，`aspect_max=2.5`，`min_side=10`，`morph_close_iters=3`。
+
+### 黑框检测参数（`qr.launch` 默认值，实车）
 
 | 参数 | 默认 | 说明 |
 |------|------|------|

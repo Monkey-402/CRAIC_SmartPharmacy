@@ -7,7 +7,8 @@
   <arg name="enable_camera" default="true" doc="false 时不启相机；true 时由 camera_driver 选择驱动"/>
   <arg name="camera_driver" default="astra" doc="astra | uvc | none（与 enable_camera 同时为 true 时生效）"/>
   <arg name="camera_enable_depth" default="false" doc="astra 驱动：是否发布深度话题"/>
-  <arg name="camera_color_mode" default="5" doc="astra 驱动 RGB 分辨率码：5=640x480@30（默认），3=1280x720@30"/>
+  <!-- astra_camera/cfg/Astra.cfg：5=640x480@30（默认），15=1280x960@7（需 patch），3=1280x720@30（Pi 易花屏） -->
+  <arg name="camera_color_mode" default="5" doc="astra RGB 模式码：5=640x480@30（默认），15=1280x960@7，3=1280x720@30"/>
   <arg name="pub_odom_tf" default="false" doc="false=EKF 发 odom TF；true=底盘发 odom TF（nav_real_amcl_no_ekf）"/>
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
 

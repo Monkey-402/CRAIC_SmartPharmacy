@@ -10,7 +10,7 @@
 |------|--------|---------|----------|------|
 | **A. Tesseract + 关键词推断**（现用） | 中 | 快 | 已集成 | 乱码时靠「化/空/忙/秒」拼标准句；**优先调 ROI** |
 | **B. 纯关键词 / 模板**（官方 `OCR_CAM_0506.py`） | 高* | 最快 | 易改 `ocr_service.py` | 不做整句 OCR，只统计 ROI 内是否出现关键字；*依赖 ROI 准 |
-| **C. PaddleOCR lite** | 高 | 慢 | 需 Python3 或 Docker | 中文屏显最好；Melodic/Py2 实车安装麻烦 |
+| **C. PaddleOCR（`board2_paddle_ocr`）** | 高 | 慢 | 需本机 conda HTTP 服务 | 已集成：`control.launch use_paddle_ocr:=true` |
 | **D. EasyOCR** | 中高 | 很慢 | 需 Py3 + 模型 | 不推荐 Pi 实车在线用 |
 | **E. 云端 API** | 高 | 看网络 | HTTP 调用 | 比赛现场网络不可控，不推荐 |
 | **F. 颜色/亮度判定** | 中 | 极快 | 可并行 | 若屏幕「空闲=绿、忙碌=红」可辅助；赛规未必固定 |

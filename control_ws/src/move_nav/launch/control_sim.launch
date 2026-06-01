@@ -1,0 +1,6 @@
+<launch>
+  <!-- Gazebo 仿真：放宽 QR 黑框检测；相机话题仍为 /camera/rgb/image_raw（640x480） -->
+  <include file="$(find move_nav)/launch/control.launch">
+    <arg name="qr_sim_mode" value="true" />
+  </include>
+</launch>

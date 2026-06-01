@@ -1,12 +1,7 @@
 <launch>
   <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
-  <arg name="threshold_method" default="dark" />
-  <arg name="adaptive_block_size" default="51" />
-  <arg name="adaptive_c" default="9" />
-  <!-- 回退 ROI 用 dark 二值化：阈值越高越只保留较黑像素 -->
-  <arg name="dark_threshold" default="145" />
-  <!-- A4 框检出成功时直接灰度 OCR，不二值化 -->
-  <arg name="gray_on_frame_detect" default="true" />
+  <!-- 暗色遮罩：灰度<=阈值置黑，其余置白；框检测与 OCR 共用 -->
+  <arg name="dark_mask_threshold" default="120" />
   <!-- 黑框失败时回退的比例 ROI -->
   <arg name="roi_x1_ratio" default="0.08" />
   <arg name="roi_y1_ratio" default="0.18" />
@@ -29,11 +24,7 @@
       name="ocr_service"
       output="screen">
     <param name="board2_decode_service" value="$(arg board2_decode_service)" />
-    <param name="threshold_method" value="$(arg threshold_method)" />
-    <param name="adaptive_block_size" value="$(arg adaptive_block_size)" />
-    <param name="adaptive_c" value="$(arg adaptive_c)" />
-    <param name="dark_threshold" value="$(arg dark_threshold)" />
-    <param name="gray_on_frame_detect" value="$(arg gray_on_frame_detect)" />
+    <param name="dark_mask_threshold" value="$(arg dark_mask_threshold)" />
     <param name="roi_x1_ratio" value="$(arg roi_x1_ratio)" />
     <param name="roi_y1_ratio" value="$(arg roi_y1_ratio)" />
     <param name="roi_x2_ratio" value="$(arg roi_x2_ratio)" />

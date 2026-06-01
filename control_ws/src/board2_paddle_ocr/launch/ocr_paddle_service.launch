@@ -1,0 +1,19 @@
+<launch>
+  <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
+  <arg name="paddle_ocr_url" default="http://127.0.0.1:8765" />
+  <arg name="paddle_ocr_timeout" default="120.0" />
+  <arg name="use_keyword_inference" default="true" />
+  <arg name="check_health_on_start" default="true" />
+
+  <node
+      pkg="board2_paddle_ocr"
+      type="ocr_paddle_service.py"
+      name="ocr_paddle_service"
+      output="screen">
+    <param name="board2_decode_service" value="$(arg board2_decode_service)" />
+    <param name="paddle_ocr_url" value="$(arg paddle_ocr_url)" />
+    <param name="paddle_ocr_timeout" value="$(arg paddle_ocr_timeout)" />
+    <param name="use_keyword_inference" value="$(arg use_keyword_inference)" />
+    <param name="check_health_on_start" value="$(arg check_health_on_start)" />
+  </node>
+</launch>

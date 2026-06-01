@@ -15,6 +15,7 @@ from move_nav.srv import Board2Decode, Board2DecodeResponse
 
 from ocr_frame_detector import (
     A4FrameParams,
+    apply_dark_mask,
     crop_a4_frame,
     draw_frame_box,
 )
@@ -35,10 +36,7 @@ class OCRService(object):
             "~board2_decode_service",
             "/yaofang_vision/board2_decode",
         )
-        self.threshold_method = rospy.get_param("~threshold_method", "dark")
-        self.adaptive_block_size = int(rospy.get_param("~adaptive_block_size", 51))
-        self.adaptive_c = int(rospy.get_param("~adaptive_c", 9))
-        self.dark_threshold = int(rospy.get_param("~dark_threshold", 145))
+        self.dark_mask_threshold = int(rospy.get_param("~dark_mask_threshold", 120))
         self.roi_x1_ratio = float(rospy.get_param("~roi_x1_ratio", 0.08))
         self.roi_y1_ratio = float(rospy.get_param("~roi_y1_ratio", 0.18))
         self.roi_x2_ratio = float(rospy.get_param("~roi_x2_ratio", 0.92))
@@ -49,9 +47,7 @@ class OCRService(object):
         )
         self.use_frame_detect = bool(rospy.get_param("~use_frame_detect", True))
         self.frame_params = A4FrameParams.from_rosparam(rospy)
-        self.gray_on_frame_detect = bool(
-            rospy.get_param("~gray_on_frame_detect", True)
-        )
+        self.frame_params.dark_mask_threshold = self.dark_mask_threshold
         self.save_debug_images = bool(rospy.get_param("~save_debug_images", True))
 
         self._warm_up_tesseract()
@@ -62,11 +58,8 @@ class OCRService(object):
         )
         rospy.loginfo("OCR board2 decode service started: %s", service_name)
         rospy.loginfo(
-            "OCR config: threshold=%s dark_thr=%d gray_on_frame=%s "
-            "frame_detect=%s psm=%d",
-            self.threshold_method,
-            self.dark_threshold,
-            self.gray_on_frame_detect,
+            "OCR config: dark_mask_thr=%d frame_detect=%s psm=%d",
+            self.dark_mask_threshold,
             self.use_frame_detect,
             self.tesseract_psm,
         )
@@ -99,13 +92,6 @@ class OCRService(object):
         if sys.version_info[0] < 3 and isinstance(value, text_type):
             return value.encode("utf-8")
         return value
-
-    def _normalize_block_size(self, block_size):
-        if block_size < 3:
-            block_size = 3
-        if block_size % 2 == 0:
-            block_size += 1
-        return block_size
 
     def _extract_roi_by_ratio(self, cv_image):
         height, width = cv_image.shape[:2]
@@ -140,44 +126,11 @@ class OCRService(object):
         return roi, mode, frame_result
 
     def _preprocess_for_ocr(self, cv_image, roi_mode):
-        gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-
-        if roi_mode == "a4_frame" and self.gray_on_frame_detect:
-            return blurred, "gray"
-
-        if self.threshold_method == "gray":
-            return blurred, "gray"
-
-        if self.threshold_method == "dark":
-            # 较高阈值：只保留较黑像素为字，背景置白
-            _, binary = cv2.threshold(
-                blurred,
-                self.dark_threshold,
-                255,
-                cv2.THRESH_BINARY,
-            )
-            return binary, "dark_%d" % self.dark_threshold
-
-        if self.threshold_method == "otsu":
-            _, binary = cv2.threshold(
-                blurred,
-                0,
-                255,
-                cv2.THRESH_BINARY + cv2.THRESH_OTSU,
-            )
-            return binary, "otsu"
-
-        block_size = self._normalize_block_size(self.adaptive_block_size)
-        binary = cv2.adaptiveThreshold(
-            blurred,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            block_size,
-            self.adaptive_c,
-        )
-        return binary, "adaptive"
+        _masked_bgr, mask = apply_dark_mask(cv_image, self.dark_mask_threshold)
+        mode = "dark_mask_%d" % self.dark_mask_threshold
+        if roi_mode != "a4_frame":
+            mode += "_ratio"
+        return mask, mode
 
     def _run_tesseract(self, processed_image):
         config = "--psm %d" % self.tesseract_psm
@@ -235,12 +188,15 @@ class OCRService(object):
         roi_path = base + "_ocr_roi.jpg"
         input_path = base + "_ocr_input.jpg"
         box_path = base + "_ocr_frame_box.jpg"
+        mask_path = base + "_ocr_frame_mask.jpg"
         try:
             cv2.imwrite(roi_path, roi_bgr)
             cv2.imwrite(input_path, processed)
             if frame_result is not None and frame_result.rect is not None:
                 boxed = draw_frame_box(cv_image, frame_result.rect)
                 cv2.imwrite(box_path, boxed)
+            if frame_result is not None and frame_result.dark_mask is not None:
+                cv2.imwrite(mask_path, frame_result.dark_mask)
             rospy.loginfo(
                 "OCR debug saved: roi=%s input=%s preprocess=%s roi_mode=%s",
                 roi_path,

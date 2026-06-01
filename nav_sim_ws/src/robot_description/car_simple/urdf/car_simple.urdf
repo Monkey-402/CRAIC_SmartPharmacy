@@ -153,6 +153,7 @@
     </sensor>
   </gazebo>
 
+  <!-- RGB 640x480@30Hz -> /camera/rgb/image_raw (same as real robot) -->
   <gazebo reference="camera_link">
     <sensor type="camera" name="camera_sensor">
       <update_rate>30.0</update_rate>
@@ -170,7 +171,7 @@
       </camera>
       <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
         <alwaysOn>true</alwaysOn>
-        <updateRate>0.0</updateRate>
+        <updateRate>30.0</updateRate>
         <cameraName>camera</cameraName>
         <imageTopicName>rgb/image_raw</imageTopicName>
         <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>

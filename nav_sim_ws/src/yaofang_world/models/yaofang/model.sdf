@@ -64,6 +64,7 @@
       <collision name='RecognitionBoard_1_Collision'>
         <geometry>
           <box>
+            <!-- keep thin (~0.01); thick board breaks QR frame detect at oblique view -->
             <size>1 0.01 0.625</size>
           </box>
         </geometry>
@@ -85,7 +86,7 @@
           <ambient>1 1 1 1</ambient>
           <diffuse>1 1 1 1</diffuse>
           <specular>0.1 0.1 0.1 1</specular>
-          <emissive>0.5 0.5 0.5 1</emissive>
+          <emissive>0.85 0.85 0.85 1</emissive>
         </material>
         <cast_shadows>false</cast_shadows>
       </visual>
