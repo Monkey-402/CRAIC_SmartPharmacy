@@ -4,13 +4,13 @@ TebLocalPlannerROS:
   odom_topic: odom
   map_frame: map
 
-  max_vel_x: 3.5
-  max_vel_x_backwards: 1.0
+  max_vel_x: 1.0
+  max_vel_x_backwards: 0.4
   max_vel_y: 0.0
-  max_vel_theta: 2.3
-  acc_lim_x: 1.2
+  max_vel_theta: 1.0
+  acc_lim_x: 0.6
   acc_lim_y: 0.0
-  acc_lim_theta: 1.0
+  acc_lim_theta: 0.5
   min_turning_radius: 0.52
   wheelbase: 0.17
   cmd_angle_instead_rotvel: false
@@ -41,8 +41,8 @@ TebLocalPlannerROS:
 
   no_inner_iterations: 5
   no_outer_iterations: 4
-  weight_optimaltime: 5.0
-  weight_max_vel_x: 2.0
+  weight_optimaltime: 2.0
+  weight_max_vel_x: 1.0
   weight_max_vel_theta: 1.0
   weight_acc_lim_x: 1.0
   weight_acc_lim_theta: 1.0

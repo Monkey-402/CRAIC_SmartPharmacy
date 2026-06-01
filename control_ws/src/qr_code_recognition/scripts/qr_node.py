@@ -14,7 +14,6 @@ from qr_parser import parse_qr
 
 
 def _monotonic():
-    # Python 2.7 (ROS Melodic) has no time.monotonic().
     try:
         return time.monotonic()
     except AttributeError:
@@ -31,7 +30,6 @@ def _read_image_when_ready(image_path, timeout_sec, poll_sec):
         except OSError:
             current_size = 0
 
-        # 等到文件非空且连续两次轮询大小一致，再认为 cv2.imwrite 基本完成。
         if current_size > 0 and current_size == last_size:
             image = cv2.imread(image_path)
             if image is not None:
@@ -43,7 +41,12 @@ def _read_image_when_ready(image_path, timeout_sec, poll_sec):
     return cv2.imread(image_path)
 
 
-# ROS service 入口：调用方传入图片路径，节点返回一个 Board1Decode 结构化结果。
+def _failure_response(error_message):
+    return Board1DecodeResponse(
+        False, False, False, 0, 0, error_message,
+    )
+
+
 class QRNode:
     def __init__(self):
         rospy.init_node("qr_node")
@@ -87,25 +90,37 @@ class QRNode:
             self.image_ready_poll_sec,
         )
         if image is None:
-            rospy.logerr("Image load failed: %s", req.image_path)
-            return Board1DecodeResponse(False, False, False, 0, 0)
+            msg = "image_load_failed: 无法读取图片 %s" % req.image_path
+            rospy.logerr(msg)
+            return _failure_response(msg)
 
         try:
-            qr_list = decode_qr(
+            decode_result = decode_qr(
                 image,
                 source_image_path=req.image_path,
                 params=self.frame_params,
             )
         except Exception as exc:
+            msg = "decode_exception: %s" % exc
             rospy.logerr("QR decode failed: %s", exc)
-            return Board1DecodeResponse(False, False, False, 0, 0)
+            return _failure_response(msg)
 
+        if decode_result.error_message:
+            if decode_result.error_message.startswith("frame_detect_failed"):
+                rospy.logerr("[QR] %s", decode_result.error_message)
+            elif decode_result.error_message.startswith("decode_failed"):
+                rospy.logerr("[QR] %s", decode_result.error_message)
+                if req.image_path:
+                    base, _ext = os.path.splitext(req.image_path)
+                    rospy.logerr(
+                        "[QR] 已保存裁剪图供排查: %s_slot[1-4].jpg", base
+                    )
+            return _failure_response(decode_result.error_message)
+
+        qr_list = decode_result.qr_list
         if req.image_path:
             base, _ext = os.path.splitext(req.image_path)
-            if os.path.isfile(base + "_slot1.jpg"):
-                rospy.loginfo("Frame crops saved: %s_slot[1-4].jpg", base)
-            elif not qr_list:
-                rospy.logwarn("Black frame detection failed for: %s", req.image_path)
+            rospy.loginfo("Frame crops saved: %s_slot[1-4].jpg", base)
 
         rospy.loginfo("QR raw result: %s", qr_list)
         for qr in qr_list:
@@ -120,8 +135,17 @@ class QRNode:
         try:
             has_a, has_b, has_c, delivery_slot, sample_count = parse_qr(qr_list)
         except Exception as exc:
+            msg = "parse_exception: %s" % exc
             rospy.logerr("QR parse failed: %s", exc)
-            return Board1DecodeResponse(False, False, False, 0, 0)
+            return _failure_response(msg)
+
+        if sample_count == 0 or delivery_slot < 1 or delivery_slot > 4:
+            msg = (
+                "parse_failed: 已扫到码但内容无效（需含 A/B/C 且 slot 1-4），"
+                "raw=%s" % qr_list
+            )
+            rospy.logerr("[QR] %s", msg)
+            return _failure_response(msg)
 
         rospy.loginfo(
             "Board1 decode result: A=%s B=%s C=%s delivery_slot=%d sample_count=%d",
@@ -137,6 +161,7 @@ class QRNode:
             has_c,
             delivery_slot,
             sample_count,
+            "",
         )
 
 

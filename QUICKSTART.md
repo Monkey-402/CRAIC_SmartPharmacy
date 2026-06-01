@@ -45,14 +45,20 @@ cd ~/craic
 export ROBOT_TYPE=EPRobotV2.3
 source ~/robot_ws/devel/setup.bash
 roslaunch eprobot_chassis_bringup chassis.launch
+# 默认 pub_odom_tf:=false，供 EKF 单独发 odom TF
 ```
 
 **终端 B — 导航**
 
 ```bash
 source ~/craic/nav_real_ws/devel/setup.bash
+# EKF + AMCL（默认，推荐）
 roslaunch car_sim nav_real_amcl.launch no_rviz:=true
-# 无静态地图、需在线建图时用：nav_real_hector.launch
+
+# 不用 EKF：终端 A 改为 pub_odom_tf:=true，再：
+# roslaunch car_sim nav_real_amcl_no_ekf.launch no_rviz:=true
+
+# 无静态地图、需在线建图：nav_real_hector.launch（底盘 pub_odom_tf:=true）
 ```
 
 RViz 在本机开：见下文「笔记本连小车」。

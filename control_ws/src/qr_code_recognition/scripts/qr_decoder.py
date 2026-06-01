@@ -9,21 +9,21 @@ from pyzbar.pyzbar import decode as pyzbar_decode
 
 
 class FrameDetectParams(object):
-    """黑框检测阈值（默认已略放宽，可在 launch 中覆盖）。"""
+    """黑框检测阈值（默认略放宽；可在 launch 中覆盖）。"""
 
     def __init__(
         self,
-        min_area_ratio=0.018,
+        min_area_ratio=0.008,
         max_area_ratio=0.48,
         inner_max_area_ratio=0.42,
-        aspect_min=0.60,
-        aspect_max=1.55,
-        min_side=30,
+        aspect_min=0.50,
+        aspect_max=1.85,
+        min_side=20,
         approx_eps_ratio=0.05,
         area_similar_min=0.35,
-        area_similar_max=2.8,
+        area_similar_max=4.0,
         dedupe_dist_thresh=20,
-        crop_margin_ratio=0.05,
+        crop_margin_ratio=0.01,
         morph_close_iters=2,
     ):
         self.min_area_ratio = min_area_ratio
@@ -46,19 +46,19 @@ class FrameDetectParams(object):
             node_handle = rospy
 
         return cls(
-            min_area_ratio=node_handle.get_param("~min_area_ratio", 0.018),
+            min_area_ratio=node_handle.get_param("~min_area_ratio", 0.008),
             max_area_ratio=node_handle.get_param("~max_area_ratio", 0.48),
             inner_max_area_ratio=node_handle.get_param(
                 "~inner_max_area_ratio", 0.42
             ),
-            aspect_min=node_handle.get_param("~aspect_min", 0.60),
-            aspect_max=node_handle.get_param("~aspect_max", 1.55),
-            min_side=int(node_handle.get_param("~min_side", 30)),
+            aspect_min=node_handle.get_param("~aspect_min", 0.50),
+            aspect_max=node_handle.get_param("~aspect_max", 1.85),
+            min_side=int(node_handle.get_param("~min_side", 20)),
             approx_eps_ratio=node_handle.get_param("~approx_eps_ratio", 0.05),
             area_similar_min=node_handle.get_param("~area_similar_min", 0.35),
-            area_similar_max=node_handle.get_param("~area_similar_max", 2.8),
+            area_similar_max=node_handle.get_param("~area_similar_max", 4.0),
             dedupe_dist_thresh=node_handle.get_param("~dedupe_dist_thresh", 20),
-            crop_margin_ratio=node_handle.get_param("~crop_margin_ratio", 0.05),
+            crop_margin_ratio=node_handle.get_param("~crop_margin_ratio", 0.01),
             morph_close_iters=int(
                 node_handle.get_param("~morph_close_iters", 2)
             ),
@@ -255,6 +255,17 @@ def _decode_text_from_crop(crop):
     return None
 
 
+class QrDecodeResult(object):
+    """二维码解码结果；error_message 为空表示 parse 成功。"""
+
+    __slots__ = ("qr_list", "error_message", "frames_detected")
+
+    def __init__(self, qr_list=None, error_message="", frames_detected=False):
+        self.qr_list = qr_list or []
+        self.error_message = error_message
+        self.frames_detected = frames_detected
+
+
 def decode_qr(image, source_image_path=None, params=None):
     if params is None:
         params = FrameDetectParams()
@@ -266,9 +277,13 @@ def decode_qr(image, source_image_path=None, params=None):
 
     frames = detect_four_frames(image, params)
     if frames is None:
-        return []
+        return QrDecodeResult(
+            error_message="frame_detect_failed: 未检测到四个黑框区域",
+            frames_detected=False,
+        )
 
     qr_list = []
+    decoded_any = False
     for slot_index, (x, y, w, h) in enumerate(frames, start=1):
         crop = _crop_inset(image, x, y, w, h, params.crop_margin_ratio)
         if crop_paths is not None:
@@ -278,6 +293,7 @@ def decode_qr(image, source_image_path=None, params=None):
         if not qr_text:
             continue
 
+        decoded_any = True
         qr_list.append(
             {
                 "text": qr_text,
@@ -287,4 +303,11 @@ def decode_qr(image, source_image_path=None, params=None):
             }
         )
 
-    return qr_list
+    if not decoded_any:
+        return QrDecodeResult(
+            qr_list=[],
+            error_message="decode_failed: 已检出四格黑框，但所有格子 pyzbar 均未扫到码",
+            frames_detected=True,
+        )
+
+    return QrDecodeResult(qr_list=qr_list, frames_detected=True)

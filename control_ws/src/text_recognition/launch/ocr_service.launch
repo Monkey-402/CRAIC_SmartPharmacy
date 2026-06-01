@@ -1,12 +1,27 @@
 <launch>
   <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
-  <!-- 默认使用大津法 otsu；如果现场反光或光照不均严重，可改为 adaptive。 -->
-  <!-- 启动时也可以临时覆盖：roslaunch text_recognition ocr_service.launch threshold_method:=adaptive -->
-  <arg name="threshold_method" default="otsu" />
-  <!-- 仅在 threshold_method=adaptive 时生效；block_size 需为大于 1 的奇数，值越大越适合大字或低分辨率文字。 -->
-  <arg name="adaptive_block_size" default="31" />
-  <!-- 仅在 threshold_method=adaptive 时生效；C 越大，二值化结果通常越偏黑，需要结合现场光照调试。 -->
-  <arg name="adaptive_c" default="11" />
+  <arg name="threshold_method" default="dark" />
+  <arg name="adaptive_block_size" default="51" />
+  <arg name="adaptive_c" default="9" />
+  <!-- 回退 ROI 用 dark 二值化：阈值越高越只保留较黑像素 -->
+  <arg name="dark_threshold" default="145" />
+  <!-- A4 框检出成功时直接灰度 OCR，不二值化 -->
+  <arg name="gray_on_frame_detect" default="true" />
+  <!-- 黑框失败时回退的比例 ROI -->
+  <arg name="roi_x1_ratio" default="0.08" />
+  <arg name="roi_y1_ratio" default="0.18" />
+  <arg name="roi_x2_ratio" default="0.92" />
+  <arg name="roi_y2_ratio" default="0.88" />
+  <!-- A4 黑框检测（长边/短边≈1.414） -->
+  <arg name="use_frame_detect" default="true" />
+  <arg name="frame_min_area_ratio" default="0.04" />
+  <arg name="frame_max_area_ratio" default="0.75" />
+  <arg name="frame_aspect_tol" default="0.22" />
+  <arg name="frame_min_side" default="50" />
+  <arg name="frame_crop_margin_ratio" default="0.04" />
+  <arg name="tesseract_psm" default="7" />
+  <arg name="use_keyword_inference" default="true" />
+  <arg name="save_debug_images" default="true" />
 
   <node
       pkg="text_recognition"
@@ -17,5 +32,20 @@
     <param name="threshold_method" value="$(arg threshold_method)" />
     <param name="adaptive_block_size" value="$(arg adaptive_block_size)" />
     <param name="adaptive_c" value="$(arg adaptive_c)" />
+    <param name="dark_threshold" value="$(arg dark_threshold)" />
+    <param name="gray_on_frame_detect" value="$(arg gray_on_frame_detect)" />
+    <param name="roi_x1_ratio" value="$(arg roi_x1_ratio)" />
+    <param name="roi_y1_ratio" value="$(arg roi_y1_ratio)" />
+    <param name="roi_x2_ratio" value="$(arg roi_x2_ratio)" />
+    <param name="roi_y2_ratio" value="$(arg roi_y2_ratio)" />
+    <param name="use_frame_detect" value="$(arg use_frame_detect)" />
+    <param name="frame_min_area_ratio" value="$(arg frame_min_area_ratio)" />
+    <param name="frame_max_area_ratio" value="$(arg frame_max_area_ratio)" />
+    <param name="frame_aspect_tol" value="$(arg frame_aspect_tol)" />
+    <param name="frame_min_side" value="$(arg frame_min_side)" />
+    <param name="frame_crop_margin_ratio" value="$(arg frame_crop_margin_ratio)" />
+    <param name="tesseract_psm" value="$(arg tesseract_psm)" />
+    <param name="use_keyword_inference" value="$(arg use_keyword_inference)" />
+    <param name="save_debug_images" value="$(arg save_debug_images)" />
   </node>
 </launch>

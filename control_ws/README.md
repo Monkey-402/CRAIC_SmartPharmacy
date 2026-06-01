@@ -263,7 +263,7 @@ rostopic echo /car_link/recv
 
 在正式比赛或部署前，建议统一检查：
 
-- 抓图保存目录与权限：默认 `control_ws/snapshots/`（QR 裁剪 `*_slot1..4.jpg` 同目录）
+- 抓图保存目录与权限：默认 **`control_ws/src/snapshots/`**（QR 裁剪 `*_slot1..4.jpg`、OCR `*_ocr_roi.jpg` / `*_ocr_bin.jpg` 同目录）
 - 摄像头话题名：默认 **`/camera/rgb/image_raw`**（官方）；离线测试图 **`/yaofang_test/image_raw`**
 - 实车 IP：1 号车 **`192.168.124.3`**，2 号车 **`192.168.124.9`**
 - 地图/world 与导航参数匹配

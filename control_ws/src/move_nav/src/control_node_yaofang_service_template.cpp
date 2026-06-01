@@ -61,11 +61,11 @@ struct GoalTask {
 // map 原点 = Gazebo spawn (0.271, -2.097, 0)；由旧图坐标换算
 const std::vector<GoalTask> GOAL_LIST = {
     {0.0, 0.0, 0.0, "home"},
-    {0.750, 0.0, 0.0, "board1_scan"},
+    {0.700, 0.0, 0.0, "board1_scan"},
     {0.501, 2.683, 2.225, "pickup_A"},
     {1.261, 3.199, 1.40, "pickup_B"},
-    {1.410, 2.148, 1.604, "pickup_C"},
-    {-0.298, 4.004, 3.082, "board2_scan"},
+    {1.381, 2.129, 1.57, "pickup_C"},
+    {-0.500, 4.004, 3.082, "board2_scan"},
     {-1.946, 2.402, -1.57, "deliver_1"},
     {-1.100, 1.925, -1.57, "deliver_2"},
     {-1.860, 1.307, -2.359, "deliver_3"},
@@ -446,12 +446,20 @@ bool callBoard1Service(const std::string& image_path) {
     g_board1_result.delivery_slot = srv.response.delivery_slot;
     g_board1_result.sample_count = srv.response.sample_count;
 
+    if (!srv.response.error_message.empty()) {
+        ROS_ERROR("二维码识别失败：%s", srv.response.error_message.c_str());
+    }
+
     ROS_INFO("二维码识别服务返回：A=%d，B=%d，C=%d，delivery_slot=%d，sample_count=%d",
              g_board1_result.has_a,
              g_board1_result.has_b,
              g_board1_result.has_c,
              g_board1_result.delivery_slot,
              g_board1_result.sample_count);
+
+    if (!srv.response.error_message.empty()) {
+        return false;
+    }
 
     return normalizeBoard1Result(&g_board1_result);
 }

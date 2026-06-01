@@ -56,11 +56,16 @@ roslaunch car_sim nav_real_hector.launch
 
 ```bash
 export ROBOT_TYPE=EPRobotV2.3   # 按车型
+# AMCL+EKF（默认）：pub_odom_tf:=false，由 EKF 发 odom TF
 roslaunch eprobot_chassis_bringup chassis.launch
 
-# 可选：导航也在小车上起
+# Hector / 无 EKF AMCL：底盘须发 odom TF
+# roslaunch eprobot_chassis_bringup chassis.launch pub_odom_tf:=true
+
 source ~/craic/nav_real_ws/devel/setup.bash
 roslaunch car_sim nav_real_amcl.launch no_rviz:=true
+# 无 EKF：nav_real_amcl_no_ekf.launch（配合 pub_odom_tf:=true）
+# Hector：nav_real_hector.launch（配合 pub_odom_tf:=true）
 ```
 
 确认 master 与话题：
@@ -176,8 +181,24 @@ rviz
 
 ## 6) 最常改的参数文件
 
-- TEB：`~/craic/nav_real_ws/src/car_sim/param/base_local_planner_params_TEB.yaml`
+- TEB：`~/craic/nav_real_ws/src/car_sim/param/base_local_planner_params_TEB.yaml`（当前保守速度：`max_vel_x` 1.0 m/s）
 - Costmap：`~/craic/nav_real_ws/src/car_sim/param/costmap_common_params.yaml`
+
+**导航已启动、临时降速（与 yaml 当前值一致，无需重启）：**
+
+```bash
+rosparam set /move_base/TebLocalPlannerROS/max_vel_x 1.0
+rosparam set /move_base/TebLocalPlannerROS/max_vel_x_backwards 0.4
+rosparam set /move_base/TebLocalPlannerROS/max_vel_theta 1.0
+rosparam set /move_base/TebLocalPlannerROS/acc_lim_x 0.6
+rosparam set /move_base/TebLocalPlannerROS/acc_lim_theta 0.5
+rosparam set /move_base/TebLocalPlannerROS/weight_optimaltime 2.0
+rosparam set /move_base/TebLocalPlannerROS/weight_max_vel_x 1.0
+# 验证
+rosparam get /move_base/TebLocalPlannerROS/max_vel_x
+```
+
+改 yaml 后须**重启** `nav_real_amcl.launch` 等导航 launch 才会从文件重新加载。
 
 更多说明见 `NAV_REAL_WS.md`。控制节点见 `control_ws/README.md` 与 `~/craic/lh.txt` 中的任务点测试命令。
 
@@ -208,7 +229,7 @@ rviz
 rostopic hz /cmd_vel
 rosparam get /move_base/controller_frequency
 rosparam get /move_base/TebLocalPlannerROS/enable_homotopy_class_planning
-# weight_optimaltime 等为 craic F1 值（默认 5），不必与官方一致
+# weight_optimaltime 等为 craic 保守速度值（默认 2.0）
 
 # 传感器与地图
 rostopic hz /odom
@@ -225,6 +246,7 @@ rostopic echo /move_base/status -n 3
 
 | 现象 | 可能原因 |
 |------|----------|
+| AMCL `skipping scan`、`Costmap2DROS transform timeout`、定位/costmap 乱飞 | **odom TF 双发布**（底盘 + EKF 同时发 `odom→base_footprint`）；须 `chassis.launch` 默认 `pub_odom_tf:=false` 且用 `nav_real_amcl.launch`（EKF）。无 EKF 时用 `pub_odom_tf:=true` + `nav_real_amcl_no_ekf.launch` |
 | `/cmd_vel` **~0.8～2 Hz**，间隔可达数秒 | TEB 默认开启多拓扑（yaml 未写 `enable_homotopy_class_planning: false`）、或 Pi 上 costmap/TEB 过重；见 move_base 日志 `Control loop missed` |
 | `map_server` 找不到 `/root/craic/.../map_sim.pgm` | `map_sim.yaml` 仍为 Docker 路径；改为 `image: map_sim.pgm` 并 sync |
 | 大量 `trajectory is not feasible` | 阿克曼转弯半径/通道宽度/障碍距离与地图不匹配；可对照官方 TEB 障碍参数或微调 costmap |

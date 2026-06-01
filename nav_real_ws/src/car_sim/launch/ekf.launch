@@ -6,7 +6,7 @@
 
   <!-- 融合底盘 /odom + IMU，输出 /odometry/filtered 与 odom→base_footprint TF。
        与 AMCL 配合时 world_frame 必须为 odom（见 param/ekf_params.yaml）。
-       若 TF 冲突，可将底盘 EPRobot_start 中 is_pub_odom_tf 设为 false。 -->
+       实车须 chassis.launch pub_odom_tf:=false（默认），避免与底盘双发 odom TF。 -->
   <node name="ekf_se" pkg="robot_localization" type="ekf_localization_node" clear_params="true" output="screen">
     <rosparam command="load" file="$(find car_sim)/param/ekf_params.yaml"/>
   </node>

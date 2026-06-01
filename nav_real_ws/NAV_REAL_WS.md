@@ -14,8 +14,8 @@
 
 ## 推荐启动顺序（与实车 `robot_ws` 同机、同一 master）
 
-1. 实车：`export ROBOT_TYPE=EPRobotV2.3` → `roslaunch eprobot_chassis_bringup chassis.launch`（`/scan_filtered`、`/odom`、`/imu_data` + TF）
-2. 导航：`roslaunch car_sim nav_real_amcl.launch`（地图由 Hector `map_size:=200` 建图保存）或 `nav_real_hector.launch`
+1. 实车：`export ROBOT_TYPE=EPRobotV2.3` → `roslaunch eprobot_chassis_bringup chassis.launch`（默认 `pub_odom_tf:=false`，EKF 单独发 odom TF）
+2. 导航：`roslaunch car_sim nav_real_amcl.launch`（EKF + AMCL）或 `nav_real_amcl_no_ekf.launch`（无 EKF，底盘须 `pub_odom_tf:=true`）或 `nav_real_hector.launch`（Hector，底盘须 `pub_odom_tf:=true`）
 3. 控制端：`control_ws`（订阅 `/camera/rgb/image_raw`，与 `chassis.launch` 相机一致）
 
 > **P0 对齐官方（当前）**：AMCL / costmap / Hector 使用 `base_footprint`；实车 `nav_real_amcl` 已启用 **EKF**（`/odom` + `/imu_data` → `/odometry/filtered`）；TEB **仅强制** `enable_homotopy_class_planning: false`，其余为 craic F1 调参。
@@ -26,7 +26,8 @@
 
 | 定位方式 | 单独启动 | 兼容别名（含 topic_remap，默认不转发） |
 |----------|----------|--------------------------------------|
-| AMCL + 静态地图 | `nav_real_amcl.launch` | `nav_real_amcl_with_remap.launch` |
+| AMCL + EKF（默认） | `nav_real_amcl.launch` | `nav_real_amcl_with_remap.launch` |
+| AMCL，无 EKF | `nav_real_amcl_no_ekf.launch` | — |
 | Hector SLAM | `nav_real_hector.launch` | `nav_real_hector_with_remap.launch` |
 
 `nav_real.launch` / `nav_real_with_remap.launch` 为兼容别名，等同 AMCL 版本。

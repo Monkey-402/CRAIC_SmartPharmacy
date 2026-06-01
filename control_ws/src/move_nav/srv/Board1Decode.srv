@@ -5,3 +5,5 @@ bool has_b
 bool has_c
 int32 delivery_slot
 int32 sample_count
+# 空=成功；frame_detect_failed=未检出四格黑框；decode_failed=有框无码；parse_failed=有码但无有效 A/B/C
+string error_message

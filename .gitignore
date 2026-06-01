@@ -10,6 +10,8 @@ nav_real_ws/devel/
 __pycache__/
 *.pyc
 
-# Runtime snapshots and QR crops
-control_ws/snapshots/*
+# Runtime snapshots and QR/OCR debug crops
+control_ws/snapshots/
 !control_ws/snapshots/.gitkeep
+control_ws/src/snapshots/
+!control_ws/src/snapshots/.gitkeep
