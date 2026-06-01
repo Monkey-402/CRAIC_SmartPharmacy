@@ -6,6 +6,8 @@
 
   <include file="$(find car_sim)/launch/car_urdf.launch"/>
 
+  <include file="$(find car_sim)/launch/sim_sensor_bridge.launch"/>
+
   <include file="$(find car_sim)/launch/hector.launch"/>
   <include file="$(find car_sim)/launch/move_base.launch"/>
 

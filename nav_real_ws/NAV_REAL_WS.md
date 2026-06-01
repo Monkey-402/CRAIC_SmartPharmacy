@@ -6,22 +6,26 @@
 
 | 项目 | nav_sim_ws | nav_real_ws |
 |------|------------|-------------|
-| 主入口 | `nav_sim.launch` → 含 `car_urdf.launch`（Gazebo + spawn） | `nav_real_amcl.launch` / `nav_real_hector.launch` + move_base + RViz（可选） |
-| 话题桥接 | 无 | 可选 `topic_remap_ros`（默认仅相机）；激光直接用 `/scan_filtered` |
+| 主入口 | `nav_sim.launch` / `hector_sim.launch`（建图） | `nav_real_amcl.launch` / `nav_real_hector.launch` |
+| 话题桥接 | 无 | 可选 `topic_remap_ros`（默认全关；legacy 相机/scan 转发） |
+| 机器人基坐标 | `base_footprint` | `base_footprint`（对齐官方） |
 
 仿真世界包 `yaofang_world` 仍保留在工作空间内，但**实机导航默认 launch 不会引用它**。
 
 ## 推荐启动顺序（与实车 `robot_ws` 同机、同一 master）
 
-1. 实车：底盘 + 雷达 + TF +（可选）相机  
-2. `roslaunch car_sim nav_real_amcl.launch` 或 `nav_real_hector.launch`  
-3. 需相机 remap 时用 `nav_real_*_with_remap.launch`  
-4. 控制端：`control_ws` 等（按需）
+1. 实车：`export ROBOT_TYPE=EPRobotV2.3` → `roslaunch eprobot_chassis_bringup chassis.launch`（`/scan_filtered`、`/odom`、`/imu_data` + TF）
+2. 导航：`roslaunch car_sim nav_real_amcl.launch`（地图由 Hector `map_size:=200` 建图保存）或 `nav_real_hector.launch`
+3. 控制端：`control_ws`（订阅 `/camera/rgb/image_raw`，与 `chassis.launch` 相机一致）
+
+> **P0 对齐官方（当前）**：AMCL / costmap / Hector 使用 `base_footprint`；实车 `nav_real_amcl` 已启用 **EKF**（`/odom` + `/imu_data` → `/odometry/filtered`）；TEB **仅强制** `enable_homotopy_class_planning: false`，其余为 craic F1 调参。
+
+实车导航是否正常，优先看 **`/cmd_vel` 是否在发目标后维持约 8 Hz**（详见 [`QUICKSTART.md` §7 性能基准](./QUICKSTART.md#7-实车性能基准与验收)）。
 
 ## Launch 入口
 
-| 定位方式 | 单独启动 | 含相机 topic_remap |
-|----------|----------|-------------------|
+| 定位方式 | 单独启动 | 兼容别名（含 topic_remap，默认不转发） |
+|----------|----------|--------------------------------------|
 | AMCL + 静态地图 | `nav_real_amcl.launch` | `nav_real_amcl_with_remap.launch` |
 | Hector SLAM | `nav_real_hector.launch` | `nav_real_hector_with_remap.launch` |
 

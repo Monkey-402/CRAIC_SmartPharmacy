@@ -45,7 +45,7 @@ B：
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 1.468, y: 3.338, z: 0.0}
+  position: {x: 1.30, y: 3.12, z: 0.0}
   orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
 
@@ -53,7 +53,7 @@ C：
 rostopic pub -1 /move_base_simple/goal geometry_msgs/PoseStamped "header:
   frame_id: 'map'
 pose:
-  position: {x: 1.468, y: 2.311, z: 0.0}
+  position: {x: 1.30, y: 2.35, z: 0.0}
   orientation: {x: 0.0, y: 0.0, z: 0.706825, w: 0.707388}"
 
 

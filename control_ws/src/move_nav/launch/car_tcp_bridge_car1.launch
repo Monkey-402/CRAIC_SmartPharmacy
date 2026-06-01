@@ -1,5 +1,5 @@
 <launch>
-  <!-- 1 号车：作为 TCP 服务端 -->
+  <!-- 1 号车：192.168.124.3，作为 TCP 服务端 -->
   <include file="$(find move_nav)/launch/car_tcp_bridge.launch">
     <arg name="role" value="server" />
     <arg name="port" value="9000" />

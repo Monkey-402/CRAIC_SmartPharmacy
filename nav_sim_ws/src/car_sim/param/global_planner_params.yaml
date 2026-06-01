@@ -1,0 +1,18 @@
+# 对齐 robot_ws_official/robot_navigation/param/EPRobot/global_planner_params.yaml
+# 与 nav_real_ws 完全一致
+
+GlobalPlanner:
+  allow_unknown: false
+  default_tolerance: 0.2
+  visualize_potential: false
+  use_dijkstra: True
+  use_quadratic: true
+  use_grid_path: false
+  old_navfn_behavior: false
+
+  lethal_cost: 200
+  neutral_cost: 60
+  cost_factor: 0.6
+  publish_potential: true
+  orientation_mode: 0
+  orientation_window_size: 1

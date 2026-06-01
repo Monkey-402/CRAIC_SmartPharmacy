@@ -78,7 +78,7 @@ sudo pip2 install 'pytesseract==0.2.9' 'pyzbar==0.1.8'
 
 ### 测试图像（模拟摄像头，与 control 分开启动）
 
-默认主控订阅实车 **`/camera/image_raw`**。离线测识别时开**两个终端**：
+默认主控订阅官方 **`/camera/rgb/image_raw`**（与实车 `uvc_camera`、仿真 Gazebo 一致）。离线测识别时开**两个终端**：
 
 **终端 1**（主控 + 视觉，常驻）：
 
@@ -173,6 +173,11 @@ CV2: 'AB-1'"
 
 用于两车协同：在 ROS 内订阅/发布整数，车与车之间经 **TCP** 传输，不依赖跨车 ROS 通信。
 
+| 小车 | IP | TCP 角色 |
+|------|-----|----------|
+| 1 号车 | `192.168.124.3` | `server`（监听 9000） |
+| 2 号车 | `192.168.124.9` | `client`（连接 1 号车） |
+
 ### 话题
 
 | 方向 | 默认话题 | 类型 | 说明 |
@@ -191,7 +196,7 @@ TCP 协议：一行一个整数，如 `42\n`。连接建立后**双向**收发�
 
 ### 启动
 
-**1 号车（server）：**
+**1 号车（`192.168.124.3`，server）：**
 
 ```bash
 roslaunch move_nav car_tcp_bridge_car1.launch
@@ -199,12 +204,12 @@ roslaunch move_nav car_tcp_bridge_car1.launch
 roslaunch move_nav car_tcp_bridge.launch role:=server port:=9000
 ```
 
-**2 号车（client，`peer_ip` 填 1 号车 IP）：**
+**2 号车（`192.168.124.9`，client，连接 1 号车 `192.168.124.3`）：**
 
 ```bash
 roslaunch move_nav car_tcp_bridge_car2.launch
 # 或
-roslaunch move_nav car_tcp_bridge.launch role:=client peer_ip:=192.168.1.101 port:=9000
+roslaunch move_nav car_tcp_bridge.launch role:=client peer_ip:=192.168.124.3 port:=9000
 ```
 
 ### 参数
@@ -212,7 +217,7 @@ roslaunch move_nav car_tcp_bridge.launch role:=client peer_ip:=192.168.1.101 por
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `role` | `client` | `server` 或 `client` |
-| `peer_ip` | `192.168.1.102` | client 模式下对端 IP |
+| `peer_ip` | `192.168.124.3` | client 模式下对端 IP（1 号车） |
 | `port` | `9000` | TCP 端口 |
 | `send_topic` | `/car_link/send` | 发送订阅话题 |
 | `recv_topic` | `/car_link/recv` | 接收发布话题 |
@@ -248,10 +253,17 @@ rostopic echo /car_link/recv
 
 ---
 
+## 任务点（`control_node_yaofang_service_template.cpp`）
+
+`GOAL_LIST` 每项格式：`{x, y, yaw, "name"}`。终点航向容差由导航栈 TEB yaml（`yaw_goal_tolerance`）统一配置。
+
+---
+
 ## 备注
 
 在正式比赛或部署前，建议统一检查：
 
 - 抓图保存目录与权限：默认 `control_ws/snapshots/`（QR 裁剪 `*_slot1..4.jpg` 同目录）
-- 摄像头话题名：默认 `/camera/image_raw`；测试时 `/yaofang_test/image_raw`
+- 摄像头话题名：默认 **`/camera/rgb/image_raw`**（官方）；离线测试图 **`/yaofang_test/image_raw`**
+- 实车 IP：1 号车 **`192.168.124.3`**，2 号车 **`192.168.124.9`**
 - 地图/world 与导航参数匹配

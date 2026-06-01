@@ -1,0 +1,30 @@
+<launch>
+  <!-- 仿真 AMCL 栈，话题/TF 与实车 nav_real_amcl 对齐（含 EKF）。 -->
+
+  <param name="/use_sim_time" value="true"/>
+
+  <arg name="map" default="map_sim.yaml" doc="map yaml under car_sim/map"/>
+  <arg name="no_rviz" default="false"/>
+
+  <include file="$(find car_sim)/launch/car_urdf.launch"/>
+
+  <include file="$(find car_sim)/launch/sim_sensor_bridge.launch"/>
+
+  <include file="$(find car_sim)/launch/map_server.launch">
+    <arg name="map" value="$(arg map)"/>
+  </include>
+
+  <include file="$(find car_sim)/launch/ekf.launch"/>
+
+  <include file="$(find car_sim)/launch/amcl.launch">
+    <arg name="odom_topic" value="/odometry/filtered"/>
+  </include>
+
+  <include file="$(find car_sim)/launch/move_base.launch">
+    <arg name="odom_topic" value="/odometry/filtered"/>
+  </include>
+
+  <group unless="$(arg no_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find car_sim)/rviz/nav.rviz"/>
+  </group>
+</launch>

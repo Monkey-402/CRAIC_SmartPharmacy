@@ -1,6 +1,6 @@
 <launch>
-  <!-- 实机导航（AMCL + 静态地图）：map_server + AMCL + move_base。
-       依赖外部底盘已发布 TF、/scan_filtered、odom；相机话题对齐可选 *_with_remap.launch。 -->
+  <!-- 实机导航（AMCL + 静态地图）：map_server + EKF + AMCL + move_base。
+       依赖外部底盘已发布 TF、/scan_filtered、/odom、/imu_data；相机话题对齐可选 *_with_remap.launch。 -->
 
   <arg name="use_sim_time" default="false"/>
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
@@ -12,9 +12,15 @@
     <arg name="map" value="$(arg map)"/>
   </include>
 
-  <include file="$(find car_sim)/launch/amcl.launch"/>
+  <include file="$(find car_sim)/launch/ekf.launch"/>
 
-  <include file="$(find car_sim)/launch/move_base.launch"/>
+  <include file="$(find car_sim)/launch/amcl.launch">
+    <arg name="odom_topic" value="/odometry/filtered"/>
+  </include>
+
+  <include file="$(find car_sim)/launch/move_base.launch">
+    <arg name="odom_topic" value="/odometry/filtered"/>
+  </include>
 
   <group unless="$(arg no_rviz)">
     <node pkg="rviz" type="rviz" name="rviz" args="-d $(find car_sim)/rviz/nav.rviz"/>

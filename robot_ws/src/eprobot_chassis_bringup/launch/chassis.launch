@@ -1,8 +1,15 @@
 <launch>
-  <!-- 实车底盘 + 雷达（按环境变量 ROBOT_TYPE 选 ls01d / lslidar），与主仓库 robot_navigation/robot_lidar.launch 思路一致。
-       使用前请将本包复制到实机 catkin_ws/src，并与 eprobot_start、lslidar_driver、ls01d、robot_navigation 等一起编译。 -->
+  <!-- 实车底盘 + 雷达 + RGB 相机（按环境变量 ROBOT_TYPE 选 ls01d / lslidar）。
+       相机为 eprobot_start/astra_rgb_image.launch（uvc_camera → /camera/rgb/image_raw）；
+       勿用 EPRobot_camera.launch，其与 EPRobot_start 重复启动底盘。
+       使用前请将本包复制到实机 catkin_ws/src，并与 eprobot_start、lslidar_driver、ls01d 等一起编译。 -->
   <arg name="use_sim_time" default="false"/>
+  <arg name="enable_camera" default="true"/>
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
 
   <include file="$(find eprobot_start)/launch/EPRobot_start.launch"/>
+
+  <group if="$(arg enable_camera)">
+    <include file="$(find eprobot_start)/launch/astra_rgb_image.launch"/>
+  </group>
 </launch>

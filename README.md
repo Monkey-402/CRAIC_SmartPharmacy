@@ -1,49 +1,30 @@
 # CRAIC
 
-本仓库包含两个主要 ROS 工作空间，分别面向仿真导航与任务控制开发。
+智慧药房赛项 ROS 工作空间集合：**仿真导航**、**实机导航**、**任务控制**。
 
-## 项目总览
+**从这里开始 → [`QUICKSTART.md`](QUICKSTART.md)**
 
-- `nav_sim_ws`：导航仿真工作空间
-  - 药房场景 Gazebo 仿真（`yaofang`）
-  - 简化小车模型（`car_simple`）
-  - `AMCL + move_base + TEB` 导航链路
-  - 详细说明见：`nav_sim_ws/README.md`
-  - 快速启动见：`nav_sim_ws/QUICKSTART.md`
+## 工作空间
 
-- `control_ws`：任务控制与业务编排工作空间
-  - 导航任务编排与视觉任务分发（话题接口）
-  - 当前推荐开发入口：`control_ws/src/move_nav/src/control_node.cpp`
-  - 详细说明见：`control_ws/README.md`
+| 目录 | 说明 |
+|------|------|
+| [`nav_sim_ws`](nav_sim_ws/) | Gazebo 仿真，`AMCL + move_base + TEB` |
+| [`nav_real_ws`](nav_real_ws/) | 实机导航（默认不启 Gazebo） |
+| [`control_ws`](control_ws/) | 药房主控、二维码/OCR、裁判上报 |
+| [`robot_ws`](robot_ws/) | 实车底盘 launch 模板（1 号车 `192.168.124.3`，2 号车 `192.168.124.9`） |
 
-- `nav_real_ws`：实机导航工作空间（由 `nav_sim_ws` 复制，**默认不启 Gazebo**）
-  - 入口：`car_sim/launch/nav_real.launch`（map_server + AMCL + move_base）
-  - 激光直接用实车 `/scan_filtered`（`base_laser_link`）；相机话题对齐可选 `topic_remap_ros`
-  - 说明见：`nav_real_ws/NAV_REAL_WS.md`
+## 推荐流程
 
-- `robot_ws`：模板工作空间，仅含底盘启动包 `eprobot_chassis_bringup`，可复制到实车 `catkin_ws` 与 `eprobot_start` 等合并使用
+1. `nav_sim_ws` 调通导航与参数  
+2. `nav_real_ws` + 实车底盘联调  
+3. `control_ws` 跑完整药房任务  
 
-## 目录结构
+## 文档索引
 
-```text
-craic/
-├── nav_sim_ws/      # 仿真与导航参数调试
-├── nav_real_ws/     # 实机导航 + 话题重映射
-├── control_ws/      # 控制逻辑与任务编排
-├── robot_ws/        # 底盘启动包模板（复制到实车）
-└── image.png        # 当前仓库内使用的示例贴图资源
-```
-
-## 推荐开发流程
-
-1. 在 `nav_sim_ws` 中完成场景、模型、导航参数调通
-2. 在 `control_ws` 中对接任务控制逻辑与视觉能力
-3. 两侧通过统一目标点、话题约定和任务协议做联调
-
-## 文档入口
-
-- Git 开发提交流程：`GIT_WORKFLOW.md`
-- 仿真导航文档：`nav_sim_ws/README.md`
-- 仿真快速启动（含 Docker）：`nav_sim_ws/QUICKSTART.md`
-- 实机导航快速启动：`nav_real_ws/QUICKSTART.md`
-- 控制工作空间文档：`control_ws/README.md`
+| 文档 | 用途 |
+|------|------|
+| **[QUICKSTART.md](QUICKSTART.md)** | **总快速上手（首选）** |
+| [nav_sim_ws/QUICKSTART.md](nav_sim_ws/QUICKSTART.md) | 仿真、Docker 细节 |
+| [nav_real_ws/QUICKSTART.md](nav_real_ws/QUICKSTART.md) | 实车验收与排错 |
+| [control_ws/README.md](control_ws/README.md) | 主控、视觉、裁判 TCP |
+| [GIT_WORKFLOW.md](GIT_WORKFLOW.md) | Git 提交规范 |

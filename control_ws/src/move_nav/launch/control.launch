@@ -16,8 +16,13 @@
   <arg name="audio_dir" default="$(find move_nav)/audio" />
   <!-- 截图与 QR 裁剪图保存在 control_ws/snapshots（与 src 同级） -->
   <arg name="snapshot_dir" default="$(find move_nav)/../snapshots/" />
-  <!-- 默认真车 /camera/image_raw；用测试图时在另一终端单独 roslaunch test_image_publisher.launch，并设 image_topic:=/yaofang_test/image_raw -->
-  <arg name="image_topic" default="/camera/image_raw" />
+  <!-- 默认与官方 uvc_camera 一致：/camera/rgb/image_raw；离线测图时用 test_image_publisher + image_topic:=/yaofang_test/image_raw -->
+  <arg name="image_topic" default="/camera/rgb/image_raw" />
+  <!-- 裁判上报 YAML（car_id、odom 话题、TCP 目标等）；2 号车可 judgement_config:=... 并改 car_id -->
+  <arg name="judgement_config" default="$(find move_nav)/config/judgement.yaml" />
+  <arg name="enable_judgement_tcp" default="false" />
+
+  <rosparam file="$(arg judgement_config)" command="load" />
 
   <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
   <arg name="qr_image_ready_timeout_sec" default="0.2" />
@@ -62,4 +67,9 @@
     <param name="snapshot_dir" value="$(arg snapshot_dir)" />
     <param name="image_topic" value="$(arg image_topic)" />
   </node>
+
+  <!-- 裁判软件 TCP 上报：订阅主控发布的 JudgementReport -->
+  <group if="$(arg enable_judgement_tcp)">
+    <include file="$(find move_nav)/launch/judgement_tcp_sender.launch" />
+  </group>
 </launch>

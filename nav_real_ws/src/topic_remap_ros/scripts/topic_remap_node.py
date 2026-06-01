@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Relay topics so craic nodes (e.g. /camera/image_raw, /scan) match real robot_ws names."""
+"""Optional relay for legacy topic names (camera / scan). Default: all off."""
 
 import copy
 import rospy
@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image, LaserScan
 def main():
     rospy.init_node("topic_remap_node")
 
-    relay_rgb = rospy.get_param("~relay_rgb", True)
+    relay_rgb = rospy.get_param("~relay_rgb", False)
     rgb_in = rospy.get_param("~rgb_in", "/camera/rgb/image_raw")
     rgb_out = rospy.get_param("~rgb_out", "/camera/image_raw")
     rgb_queue = rospy.get_param("~rgb_queue_size", 2)

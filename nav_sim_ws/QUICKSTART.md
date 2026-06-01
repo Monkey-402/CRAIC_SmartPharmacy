@@ -1,5 +1,7 @@
 # Quickstart
 
+> **总览**：见 [`../QUICKSTART.md`](../QUICKSTART.md)。下文为仿真、建图与 Docker 细节。
+
 ## 1) 一次性准备
 
 ```bash
@@ -15,9 +17,36 @@ source ~/craic/nav_sim_ws/devel/setup.bash
 
 ## 3) 启动仿真导航
 
+**与实车话题对齐（推荐，含 EKF + AMCL）：**
+
+```bash
+roslaunch car_sim nav_sim_amcl.launch
+```
+
+话题与 `nav_real_amcl` 一致：`/scan_filtered`、`/imu_data`、`/odometry/filtered`、`base_laser_link`、`IMU_link`。
+
+**轻量 AMCL（无 EKF，仍走对齐后的话题名）：**
+
 ```bash
 roslaunch car_sim nav_sim.launch
 ```
+
+### 3.1) Hector 建图（生成实机用 map_sim）
+
+默认 **200×200** 栅格（`hector.launch` 的 `map_size`，0.05m 下约 10m×10m）：
+
+```bash
+roslaunch car_sim hector_sim.launch
+# 键盘 teleop 走遍场地后：
+roslaunch car_sim map_save.launch
+cp src/car_sim/map/map_sim.{pgm,yaml} ../nav_real_ws/src/car_sim/map/
+```
+
+场地更大时可 `roslaunch car_sim hector_sim.launch map_size:=256`。
+
+导航栈坐标系已对齐官方：**`base_footprint`**（与 `car_simple.urdf`、实车 `EPRobot_start` 一致）。
+
+`sim_sensor_bridge.launch` 将 Gazebo 的 `/scan`、`/imu/data` 对齐为实车的 `/scan_filtered`、`/imu_data`，并发布 `laser_link→base_laser_link`、`imu_link→IMU_link` 静态 TF。
 
 ## 4) 在 RViz 里常用操作
 

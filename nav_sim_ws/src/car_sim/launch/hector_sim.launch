@@ -2,6 +2,8 @@
   <!-- 启动 Gazebo 空世界 + 无人机 URDF 模型 -->
   <include file="$(find car_sim)/launch/car_urdf.launch"/>
 
+  <include file="$(find car_sim)/launch/sim_sensor_bridge.launch"/>
+
     <!-- 运行地图服务器，并且加载设置的地图-->
     <!-- <include file="$(find car_sim)/launch/map_server.launch"/> -->
 

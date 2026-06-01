@@ -1,0 +1,13 @@
+<launch>
+  <!-- 底盘 /imu_data 的 frame_id 为 IMU_link，但 chassis 仅发布 gyro_link / URDF 的 base_imu_Link。
+       官方 robot_navigation.launch 会补 base_link→IMU_link；此处用 base_imu_Link 做零位别名。 -->
+  <node pkg="tf" type="static_transform_publisher" name="imu_link_alias"
+        args="0 0 0 0 0 0 base_imu_Link IMU_link 100" />
+
+  <!-- 融合底盘 /odom + IMU，输出 /odometry/filtered 与 odom→base_footprint TF。
+       与 AMCL 配合时 world_frame 必须为 odom（见 param/ekf_params.yaml）。
+       若 TF 冲突，可将底盘 EPRobot_start 中 is_pub_odom_tf 设为 false。 -->
+  <node name="ekf_se" pkg="robot_localization" type="ekf_localization_node" clear_params="true" output="screen">
+    <rosparam command="load" file="$(find car_sim)/param/ekf_params.yaml"/>
+  </node>
+</launch>

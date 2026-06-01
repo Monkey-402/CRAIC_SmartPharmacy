@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   actionlib_msgs
   geometry_msgs
+  nav_msgs
+  tf2_ros
   move_base_msgs
   roscpp
   std_msgs
@@ -194,6 +196,10 @@ catkin_install_python(PROGRAMS
 
 install(DIRECTORY test_assets
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(DIRECTORY config/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
 )
 
 ## Mark executables for installation

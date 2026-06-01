@@ -14,7 +14,7 @@ class CarTcpBridge(object):
         rospy.init_node("car_tcp_bridge", anonymous=False)
 
         self.role = rospy.get_param("~role", "client").lower()
-        self.peer_ip = rospy.get_param("~peer_ip", "192.168.1.102")
+        self.peer_ip = rospy.get_param("~peer_ip", "192.168.124.3")
         self.port = int(rospy.get_param("~port", 9000))
         self.send_topic = rospy.get_param("~send_topic", "/car_link/send")
         self.recv_topic = rospy.get_param("~recv_topic", "/car_link/recv")
