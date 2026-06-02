@@ -1,14 +1,14 @@
-# 1 号车（192.168.124.3）裁判上报；裁判软件 PC：192.168.124.2
-# 启动：roslaunch move_nav control.launch car_id:=1 enable_judgement_tcp:=true
+# 双机仿真 — 2 号车（192.168.1.105，TCP client → 104）
+# 启动：roslaunch move_nav sim_car2.launch
 
 yaofang_control_service_node:
-  car_id: "1"
-  dual_car_mode: false
-  initial_station: "home"
+  car_id: "2"
+  dual_car_mode: true
+  initial_station: "standby"
+  first_mover_car_id: "1"
   standby_x: -1.125
   standby_y: 0.207
   standby_yaw: 0.050
-  first_mover_car_id: "1"
   deprioritize_delivery_slot: 2
   slot2_max_visits_before_accept: 2
   require_peer_tcp: true
@@ -24,8 +24,11 @@ yaofang_control_service_node:
   default_cv2: ""
   default_task: "R"
 
-judgement_tcp_sender:
-  server_ip: "192.168.124.2"
-  server_port: 8888
-  send_rate: 1.5
-  input_topic: "/judgement/report"
+car_tcp_bridge:
+  role: "client"
+  peer_ip: "192.168.1.104"
+  port: 9000
+  send_topic: "/car_link/send"
+  recv_topic: "/car_link/recv"
+  connected_topic: "/car_link/peer_connected"
+  reconnect_interval: 2.0

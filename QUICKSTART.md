@@ -210,14 +210,16 @@ rostopic hz /camera/rgb/image_raw
 
 ## 双车协调（可选）
 
-两车 **home / standby** 轮流扫板一；需先标定 `judgement_car*.yaml` 中 `standby_x/y/yaw`。
+参数见 `control_ws/src/move_nav/config/sim_car1.yaml` 与 `sim_car2.yaml`（改 standby、TCP 等只改 yaml）。
 
 ```bash
-# 1 号车（192.168.124.3）
-roslaunch move_nav control_dual_car_car1.launch enable_judgement_tcp:=true
+# 双机仿真：104 先起 server，105 后起 client
+roslaunch move_nav sim_car1.launch
+roslaunch move_nav sim_car2.launch
 
-# 2 号车（192.168.124.9）
-roslaunch move_nav control_dual_car_car2.launch enable_judgement_tcp:=true
+# 赛场实车
+roslaunch move_nav real_car1.launch
+roslaunch move_nav real_car2.launch
 ```
 
 详见 [`control_ws/README.md`](control_ws/README.md) 双车协调一节。

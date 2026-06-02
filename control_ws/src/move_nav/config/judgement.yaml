@@ -1,4 +1,4 @@
-# CRAIC 裁判上报（通用模板；实车请用 car_id:=1/2 加载 judgement_car1/2.yaml）
+# CRAIC 裁判上报（通用模板；实车请用 real_car1/2.launch 或 control.launch car_id:=1/2）
 
 yaofang_control_service_node:
   # 小车编号 "1"（.3）或 "2"（.9）；推荐 launch：car_id:=1 或 car_id:=2

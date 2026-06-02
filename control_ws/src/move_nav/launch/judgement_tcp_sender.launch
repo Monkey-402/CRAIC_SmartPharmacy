@@ -3,8 +3,8 @@
   <arg name="car_id" default="1" doc="1|2|sim"/>
   <arg name="load_judgement_config" default="true" doc="经 control.launch 拉起时设为 false"/>
   <arg if="$(eval arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/judgement_sim.yaml"/>
-  <arg if="$(eval arg('car_id') == '2')" name="judgement_config" default="$(find move_nav)/config/judgement_car2.yaml"/>
-  <arg unless="$(eval arg('car_id') == '2' or arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/judgement_car1.yaml"/>
+  <arg if="$(eval arg('car_id') == '2')" name="judgement_config" default="$(find move_nav)/config/real_car2.yaml"/>
+  <arg unless="$(eval arg('car_id') == '2' or arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/real_car1.yaml"/>
   <rosparam if="$(arg load_judgement_config)" file="$(arg judgement_config)" command="load" />
 
   <node name="judgement_tcp_sender"

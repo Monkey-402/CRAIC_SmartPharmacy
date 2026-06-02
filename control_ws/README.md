@@ -178,28 +178,26 @@ CV2: 'AB-1'"
 | 1 号车 | `192.168.124.3` | `home` | server :9000 |
 | 2 号车 | `192.168.124.9` | `standby` | client → 1 号车 |
 
-### 一键启动（主控 + 桥接 + 可选裁判 TCP）
+### 一键启动（参数均在 `config/*.yaml`，launch 无业务参数）
+
+| 场景 | 1 号车 | 2 号车 | 配置文件 |
+|------|--------|--------|----------|
+| 双机仿真 104/105 | `sim_car1.launch` | `sim_car2.launch` | `config/sim_car1.yaml`, `sim_car2.yaml` |
+| 赛场实车 124.3/124.9 | `real_car1.launch` | `real_car2.launch` | `config/real_car1.yaml`, `real_car2.yaml` |
 
 ```bash
-# 1 号车
-roslaunch move_nav control_dual_car_car1.launch enable_judgement_tcp:=true
+# 仿真：104 先起，105 后起
+roslaunch move_nav sim_car1.launch
+roslaunch move_nav sim_car2.launch
 
-# 2 号车
-roslaunch move_nav control_dual_car_car2.launch enable_judgement_tcp:=true
+# 实车（含裁判 TCP）
+roslaunch move_nav real_car1.launch
+roslaunch move_nav real_car2.launch
 ```
 
-或：
+改 standby、peer_ip、裁判地址等请只编辑对应 **yaml**，不要改 launch。
 
-```bash
-# 1 号车
-roslaunch move_nav control.launch car_id:=1 dual_car_mode:=true enable_car_tcp:=true
-
-# 2 号车（改 peer 为 1 号车 IP）
-roslaunch move_nav control.launch car_id:=2 dual_car_mode:=true enable_car_tcp:=true \
-  car_tcp_peer_ip:=192.168.1.104
-```
-
-双车模式下 **TCP 未连接前不会导航**；2 号车 **必须收到 1 号 `ROUND_DONE`** 且在 **home** 才会开工（首轮仅 1 号车 `first_mover` 可先动）。
+双车模式下 **TCP 未连接前不会导航**；2 号车 **必须收到 1 号 `ROUND_DONE`** 且在 **home** 才会开工。
 
 ### CarLink 话题与 TCP JSON
 
@@ -218,7 +216,7 @@ roslaunch move_nav control.launch car_id:=2 dual_car_mode:=true enable_car_tcp:=
 
 ### 预备点
 
-`standby_x/y/yaw` 在 `judgement_car1.yaml` / `judgement_car2.yaml` 中配置（默认占位，实车标定后修改）。
+`standby_x/y/yaw` 在 `config/sim_car*.yaml` / `config/real_car*.yaml` 中配置。
 
 ### 板一 slot 优先级（单车同样生效）
 
