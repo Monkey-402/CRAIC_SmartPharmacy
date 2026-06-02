@@ -1,7 +1,7 @@
-# CRAIC 裁判上报配置（规则详见仓库根目录 judgement.md）
+# CRAIC 裁判上报（通用模板；实车请用 car_id:=1/2 加载 judgement_car1/2.yaml）
 
 yaofang_control_service_node:
-  # 小车编号，字符串 "1" 或 "2"（1 号车 192.168.124.3，2 号车 192.168.124.9）
+  # 小车编号 "1"（.3）或 "2"（.9）；推荐 launch：car_id:=1 或 car_id:=2
   car_id: "1"
   # 里程计话题（twist 取速度；pose 在 use_tf_pose=false 时使用）
   odom_topic: "/odom"
@@ -22,7 +22,7 @@ yaofang_control_service_node:
 
 # judgement_tcp_sender 节点参数（由 control.launch 按需拉起）
 judgement_tcp_sender:
-  server_ip: "192.168.1.100"
+  server_ip: "192.168.124.2"
   server_port: 8888
   send_rate: 1.5
   input_topic: "/judgement/report"

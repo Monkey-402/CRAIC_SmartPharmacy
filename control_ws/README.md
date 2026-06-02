@@ -169,80 +169,54 @@ CV2: 'AB-1'"
 
 ---
 
-## 双车 TCP 通信（car_tcp_bridge）
+## 双车协调（home / standby + CarLink）
 
-用于两车协同：在 ROS 内订阅/发布整数，车与车之间经 **TCP** 传输，不依赖跨车 ROS 通信。
+识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调仅负责 **起点轮流**；板一 `delivery_slot` 优先级（1→3→4 优先，2 最低）为**各车本地**逻辑。
 
-| 小车 | IP | TCP 角色 |
-|------|-----|----------|
-| 1 号车 | `192.168.124.3` | `server`（监听 9000） |
-| 2 号车 | `192.168.124.9` | `client`（连接 1 号车） |
+| 小车 | IP | 初始站位 | TCP |
+|------|-----|----------|-----|
+| 1 号车 | `192.168.124.3` | `home` | server :9000 |
+| 2 号车 | `192.168.124.9` | `standby` | client → 1 号车 |
 
-### 话题
-
-| 方向 | 默认话题 | 类型 | 说明 |
-|------|----------|------|------|
-| 发出 | `/car_link/send` | `std_msgs/Int32` | 本车要发给对端的数字 |
-| 接收 | `/car_link/recv` | `std_msgs/Int32` | 对端发来的数字 |
-
-TCP 协议：一行一个整数，如 `42\n`。连接建立后**双向**收发。
-
-### 角色
-
-| 角色 | 行为 | 建议 |
-|------|------|------|
-| `server` | 监听端口，等对端连接 | 1 号车 |
-| `client` | 主动连接对端 IP | 2 号车 |
-
-### 启动
-
-**1 号车（`192.168.124.3`，server）：**
+### 一键启动（主控 + 桥接 + 可选裁判 TCP）
 
 ```bash
-roslaunch move_nav car_tcp_bridge_car1.launch
-# 或
-roslaunch move_nav car_tcp_bridge.launch role:=server port:=9000
+# 1 号车
+roslaunch move_nav control_dual_car_car1.launch enable_judgement_tcp:=true
+
+# 2 号车
+roslaunch move_nav control_dual_car_car2.launch enable_judgement_tcp:=true
 ```
 
-**2 号车（`192.168.124.9`，client，连接 1 号车 `192.168.124.3`）：**
+或：`control.launch` 加 `dual_car_mode:=true enable_car_tcp:=true car_id:=1|2`。
 
-```bash
-roslaunch move_nav car_tcp_bridge_car2.launch
-# 或
-roslaunch move_nav car_tcp_bridge.launch role:=client peer_ip:=192.168.124.3 port:=9000
-```
+### CarLink 话题与 TCP JSON
 
-### 参数
+| 话题 | 类型 |
+|------|------|
+| `/car_link/send` | `move_nav/CarLink` |
+| `/car_link/recv` | `move_nav/CarLink` |
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `role` | `client` | `server` 或 `client` |
-| `peer_ip` | `192.168.124.3` | client 模式下对端 IP（1 号车） |
-| `port` | `9000` | TCP 端口 |
-| `send_topic` | `/car_link/send` | 发送订阅话题 |
-| `recv_topic` | `/car_link/recv` | 接收发布话题 |
+线格式（一行一条 JSON）：`{"v":1,"type":1,"from_id":"1","seq":10,"station":3,"delivery_slot":3}`
 
-### 测试
+| type | 含义 |
+|------|------|
+| 0 `HEARTBEAT` | 周期站位 |
+| 1 `SCAN_OK` | 板一已接单，对端 standby→home |
+| 2 `ROUND_DONE` | 本轮结束在 standby，对端 home 可开工 |
 
-**A 车发送：**
+### 预备点
 
-```bash
-rostopic pub /car_link/send std_msgs/Int32 "data: 1"
-```
+`standby_x/y/yaw` 在 `judgement_car1.yaml` / `judgement_car2.yaml` 中配置（默认占位，实车标定后修改）。
 
-**B 车接收：**
+### 板一 slot 优先级（单车同样生效）
 
-```bash
-rostopic echo /car_link/recv
-```
+| 参数 | 默认 |
+|------|------|
+| `deprioritize_delivery_slot` | `2` |
+| `slot2_max_visits_before_accept` | `2` |
 
-反向同理：B 发 `/car_link/send`，A 收 `/car_link/recv`。
-
-### 注意
-
-- 两台设备需在同一网段；**server 端**需放行 TCP 端口（默认 9000）。
-- Windows 默认可能拦截 ping，但不影响 TCP；以 `nc -zv <对端IP> 9000` 验证连通性更可靠。
-- 断线后 client 会自动重连；server 断开后会重新等待连接。
+扫到 slot 2 时在板一重扫，visit 达上限后才接受 slot 2。
 
 ---
 

@@ -13,11 +13,27 @@ Docker 使用 `--net=host` 时，容器内 `http://127.0.0.1:8765` 可访问宿�
 
 ## 一次性安装（宿主机或 Docker 内）
 
+默认使用 **Miniforge**（`conda-forge`），树莓派 4 / aarch64 比官方 Miniconda 更不易出现 `Illegal instruction`。安装路径仍为 `~/miniconda3`（与旧脚本兼容）。
+
 ```bash
 roscd board2_paddle_ocr
 chmod +x setup_paddle_conda.sh run_paddle_ocr_server.sh
 ./setup_paddle_conda.sh
 ```
+
+**树莓派 / 国内网络慢：**
+
+```bash
+CONDA_MIRROR=tsinghua ./setup_paddle_conda.sh
+```
+
+**已下载安装包到本机：**
+
+```bash
+CONDA_INSTALLER_LOCAL=~/Miniforge3-Linux-aarch64.sh ./setup_paddle_conda.sh
+```
+
+仍要用官方 Miniconda（不推荐 ARM）：`CONDA_DISTRO=miniconda ./setup_paddle_conda.sh`
 
 ## 启动 Paddle HTTP 服务
 

@@ -18,41 +18,34 @@
   <arg name="snapshot_dir" default="$(find move_nav)/../snapshots/" />
   <!-- 默认与官方 uvc_camera 一致：/camera/rgb/image_raw；离线测图时用 test_image_publisher + image_topic:=/yaofang_test/image_raw -->
   <arg name="image_topic" default="/camera/rgb/image_raw" />
-  <!-- 裁判上报 YAML（car_id、odom 话题、TCP 目标等）；2 号车可 judgement_config:=... 并改 car_id -->
-  <arg name="judgement_config" default="$(find move_nav)/config/judgement.yaml" />
+  <!-- 裁判上报：car_id 选配置集（1/2=赛场 .124.x，sim=实验室 小车.104 裁判.105） -->
+  <arg name="car_id" default="1" doc="1|2|sim → judgement_car1/car2/sim.yaml"/>
+  <arg if="$(eval arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/judgement_sim.yaml"/>
+  <arg if="$(eval arg('car_id') == '2')" name="judgement_config" default="$(find move_nav)/config/judgement_car2.yaml"/>
+  <arg unless="$(eval arg('car_id') == '2' or arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/judgement_car1.yaml"/>
   <arg name="enable_judgement_tcp" default="false" />
+  <arg name="dual_car_mode" default="false" doc="home/standby 轮流接力"/>
+  <arg name="enable_car_tcp" default="false" doc="启用车际 TCP 桥接"/>
 
   <rosparam file="$(arg judgement_config)" command="load" />
+  <param name="yaofang_control_service_node/dual_car_mode" value="$(arg dual_car_mode)" />
 
   <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
   <arg name="qr_image_ready_timeout_sec" default="0.2" />
   <arg name="qr_image_ready_poll_sec" default="0.01" />
-  <!-- QR 黑框检测：qr_sim_mode:=true 为 Gazebo 放宽参数；false 为实车默认 -->
-  <arg name="qr_sim_mode" default="false" doc="仿真 Gazebo 时建议 true"/>
-  <arg if="$(arg qr_sim_mode)" name="qr_min_area_ratio" default="0.003" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_min_area_ratio" default="0.008" />
-  <arg if="$(arg qr_sim_mode)" name="qr_max_area_ratio" default="0.55" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_max_area_ratio" default="0.48" />
-  <arg if="$(arg qr_sim_mode)" name="qr_inner_max_area_ratio" default="0.50" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_inner_max_area_ratio" default="0.42" />
-  <arg if="$(arg qr_sim_mode)" name="qr_aspect_min" default="0.35" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_aspect_min" default="0.50" />
-  <arg if="$(arg qr_sim_mode)" name="qr_aspect_max" default="2.5" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_aspect_max" default="1.85" />
-  <arg if="$(arg qr_sim_mode)" name="qr_min_side" default="10" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_min_side" default="20" />
-  <arg if="$(arg qr_sim_mode)" name="qr_approx_eps_ratio" default="0.06" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_approx_eps_ratio" default="0.05" />
-  <arg if="$(arg qr_sim_mode)" name="qr_area_similar_min" default="0.25" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_area_similar_min" default="0.35" />
-  <arg if="$(arg qr_sim_mode)" name="qr_area_similar_max" default="5.0" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_area_similar_max" default="4.0" />
-  <arg if="$(arg qr_sim_mode)" name="qr_dedupe_dist_thresh" default="30" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_dedupe_dist_thresh" default="20" />
-  <arg if="$(arg qr_sim_mode)" name="qr_crop_margin_ratio" default="0.02" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_crop_margin_ratio" default="0.01" />
-  <arg if="$(arg qr_sim_mode)" name="qr_morph_close_iters" default="3" />
-  <arg unless="$(arg qr_sim_mode)" name="qr_morph_close_iters" default="2" />
+  <!-- QR 黑框检测（实车/仿真统一，原 Gazebo 放宽参数） -->
+  <arg name="qr_min_area_ratio" default="0.003" />
+  <arg name="qr_max_area_ratio" default="0.55" />
+  <arg name="qr_inner_max_area_ratio" default="0.50" />
+  <arg name="qr_aspect_min" default="0.35" />
+  <arg name="qr_aspect_max" default="2.5" />
+  <arg name="qr_min_side" default="10" />
+  <arg name="qr_approx_eps_ratio" default="0.06" />
+  <arg name="qr_area_similar_min" default="0.25" />
+  <arg name="qr_area_similar_max" default="5.0" />
+  <arg name="qr_dedupe_dist_thresh" default="30" />
+  <arg name="qr_crop_margin_ratio" default="0.02" />
+  <arg name="qr_morph_close_iters" default="3" />
 
   <!-- 识别板二 OCR 后端：false=Tesseract(text_recognition)，true=Paddle HTTP(board2_paddle_ocr) -->
   <arg name="use_paddle_ocr" default="false" />
@@ -118,6 +111,16 @@
 
   <!-- 裁判软件 TCP 上报：订阅主控发布的 JudgementReport -->
   <group if="$(arg enable_judgement_tcp)">
-    <include file="$(find move_nav)/launch/judgement_tcp_sender.launch" />
+    <include file="$(find move_nav)/launch/judgement_tcp_sender.launch">
+      <arg name="load_judgement_config" value="false"/>
+    </include>
+  </group>
+
+  <!-- 双车协调 TCP 桥接（按 car_id 选 server/client） -->
+  <group if="$(arg enable_car_tcp)">
+    <include if="$(eval arg('car_id') == '2')"
+             file="$(find move_nav)/launch/car_tcp_bridge_car2.launch" />
+    <include unless="$(eval arg('car_id') == '2')"
+             file="$(find move_nav)/launch/car_tcp_bridge_car1.launch" />
   </group>
 </launch>

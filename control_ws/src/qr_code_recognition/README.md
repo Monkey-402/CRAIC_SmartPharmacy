@@ -49,16 +49,7 @@ roslaunch qr_code_recognition qr.launch
 
 ### 黑框检测参数（`qr.launch` / `control.launch` 的 `qr_*`）
 
-`qr_sim_mode:=true`（见 `control_sim.launch`）时示例：`min_area_ratio=0.003`，`aspect_max=2.5`，`min_side=10`，`morph_close_iters=3`。
-
-### 黑框检测参数（`qr.launch` 默认值，实车）
-
-| 参数 | 默认 | 说明 |
-|------|------|------|
-| `aspect_min` / `aspect_max` | 0.50 / 1.85 | 宽高比（实车验证） |
-| `min_area_ratio` / `max_area_ratio` | 0.008 / 0.48 | 轮廓面积占整图比例 |
-| `crop_margin_ratio` | 0.01 | 裁剪内缩 |
-| `area_similar_min` / `max` | 0.35 / 4.0 | 四个框面积允许差异 |
+`control.launch` / `qr.launch` 默认（实车/仿真统一）：`min_area_ratio=0.003`，`aspect_max=2.5`，`min_side=10`，`morph_close_iters=3`。
 
 失败时 `Board1Decode.error_message` 区分：
 

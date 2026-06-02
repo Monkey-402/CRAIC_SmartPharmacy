@@ -1,0 +1,29 @@
+# 2 号车（192.168.124.9）裁判上报；裁判软件 PC：192.168.124.2
+# 启动：roslaunch move_nav control.launch car_id:=2 enable_judgement_tcp:=true
+
+yaofang_control_service_node:
+  car_id: "2"
+  dual_car_mode: false
+  initial_station: "standby"
+  standby_x: 0.0
+  standby_y: -1.5
+  standby_yaw: 0.0
+  first_mover_car_id: "1"
+  deprioritize_delivery_slot: 2
+  slot2_max_visits_before_accept: 2
+  odom_topic: "/odom"
+  use_tf_pose: true
+  map_frame: "map"
+  base_frame: "base_link"
+  enable_judgement_report: true
+  judgement_report_topic: "/judgement/report"
+  judgement_report_rate: 1.5
+  default_cv1: "WAIT-0"
+  default_cv2: ""
+  default_task: "R"
+
+judgement_tcp_sender:
+  server_ip: "192.168.124.2"
+  server_port: 8888
+  send_rate: 1.5
+  input_topic: "/judgement/report"

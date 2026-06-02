@@ -15,11 +15,16 @@ _resolve_pkg_dir() {
 }
 
 PKG_DIR="$(_resolve_pkg_dir)"
-INSTALL_DIR="${MINICONDA_DIR:-$HOME/miniconda3}"
+INSTALL_DIR="${CONDA_DIR:-${MINICONDA_DIR:-$HOME/miniconda3}}"
 ENV_NAME="${CONDA_ENV_NAME:-paddleocr}"
 
-if [[ ! -f "${INSTALL_DIR}/bin/conda" ]]; then
-  echo "未找到 Miniconda，请先运行: ${PKG_DIR}/setup_paddle_conda.sh" >&2
+if [[ ! -x "${INSTALL_DIR}/bin/conda" ]]; then
+  echo "未找到 Conda（Miniforge），请先运行: ${PKG_DIR}/setup_paddle_conda.sh" >&2
+  exit 1
+fi
+
+if ! "${INSTALL_DIR}/bin/conda" --version >/dev/null 2>&1; then
+  echo "Conda 无法运行（Illegal instruction?），请 rm -rf ${INSTALL_DIR} 后重装 setup_paddle_conda.sh" >&2
   exit 1
 fi
 

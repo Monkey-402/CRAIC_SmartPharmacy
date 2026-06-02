@@ -1,0 +1,8 @@
+<launch>
+  <!-- 2 号车：standby 起点 + TCP client + 双车协调 -->
+  <include file="$(find move_nav)/launch/control.launch">
+    <arg name="car_id" value="2" />
+    <arg name="dual_car_mode" value="true" />
+    <arg name="enable_car_tcp" value="true" />
+  </include>
+</launch>

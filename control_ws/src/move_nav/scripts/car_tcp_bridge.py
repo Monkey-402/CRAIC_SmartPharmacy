@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""双车 TCP 桥接：ROS Int32 <-> 对端整数，不依赖跨车 ROS 通信。"""
+"""双车 TCP 桥接：ROS CarLink <-> 对端 JSON 行，不依赖跨车 ROS 通信。"""
 
+import json
 import socket
 import threading
 
 import rospy
-from std_msgs.msg import Int32
+from move_nav.msg import CarLink
 
 
 class CarTcpBridge(object):
@@ -25,9 +26,9 @@ class CarTcpBridge(object):
         self._recv_buffer = ""
         self._stop = threading.Event()
 
-        self._pub = rospy.Publisher(self.recv_topic, Int32, queue_size=10)
+        self._pub = rospy.Publisher(self.recv_topic, CarLink, queue_size=10)
         self._sub = rospy.Subscriber(
-            self.send_topic, Int32, self._send_cb, queue_size=10
+            self.send_topic, CarLink, self._send_cb, queue_size=10
         )
 
         if self.role == "server":
@@ -76,16 +77,43 @@ class CarTcpBridge(object):
             self._sock = sock
             self._recv_buffer = ""
 
+    @staticmethod
+    def _carlink_to_dict(msg):
+        return {
+            "v": 1,
+            "type": int(msg.type),
+            "from_id": msg.from_id,
+            "seq": int(msg.seq),
+            "station": int(msg.station),
+            "delivery_slot": int(msg.delivery_slot),
+        }
+
+    @staticmethod
+    def _dict_to_carlink(data):
+        msg = CarLink()
+        msg.type = int(data.get("type", CarLink.CARLINK_HEARTBEAT))
+        msg.from_id = str(data.get("from_id", ""))
+        msg.seq = int(data.get("seq", 0))
+        msg.stamp = rospy.Time.now()
+        msg.station = int(data.get("station", CarLink.STATION_UNKNOWN))
+        msg.delivery_slot = int(data.get("delivery_slot", 0))
+        return msg
+
     def _send_cb(self, msg):
-        line = "{0}\n".format(int(msg.data)).encode("utf-8")
+        payload = json.dumps(
+            self._carlink_to_dict(msg), separators=(",", ":"), ensure_ascii=False
+        )
+        line = (payload + "\n").encode("utf-8")
         with self._sock_lock:
             sock = self._sock
         if sock is None:
-            rospy.logwarn_throttle(5.0, "未连接对端，丢弃发送: %d", msg.data)
+            rospy.logwarn_throttle(
+                5.0, "未连接对端，丢弃 CarLink type=%d", msg.type
+            )
             return
         try:
             sock.sendall(line)
-            rospy.logdebug("已发送: %d", msg.data)
+            rospy.logdebug("已发送 CarLink type=%d seq=%d", msg.type, msg.seq)
         except socket.error as exc:
             rospy.logwarn("发送失败: %s", exc)
             self._close_socket()
@@ -95,12 +123,27 @@ class CarTcpBridge(object):
         if not line:
             return
         try:
-            value = int(line)
-        except ValueError:
-            rospy.logwarn("收到非法数据: %r", line)
+            if line[0] in "{[":
+                data = json.loads(line)
+                if int(data.get("v", 0)) != 1:
+                    rospy.logwarn("不支持的协议版本: %r", data.get("v"))
+                    return
+                msg = self._dict_to_carlink(data)
+            else:
+                rospy.logwarn_throttle(
+                    5.0, "忽略旧版纯数字行，请使用 CarLink JSON: %r", line
+                )
+                return
+        except (ValueError, TypeError) as exc:
+            rospy.logwarn("收到非法数据: %r (%s)", line, exc)
             return
-        self._pub.publish(Int32(data=value))
-        rospy.loginfo("收到对端: %d -> %s", value, self.recv_topic)
+        self._pub.publish(msg)
+        rospy.loginfo(
+            "收到对端 CarLink type=%d from=%s -> %s",
+            msg.type,
+            msg.from_id,
+            self.recv_topic,
+        )
 
     def _recv_loop(self, sock):
         while not self._stop.is_set() and not rospy.is_shutdown():
@@ -153,8 +196,12 @@ class CarTcpBridge(object):
                 self._set_socket(sock)
                 self._recv_loop(sock)
             except socket.error as exc:
-                rospy.logwarn_throttle(5.0, "连接失败，%ss 后重试: %s",
-                                       self.reconnect_interval, exc)
+                rospy.logwarn_throttle(
+                    5.0,
+                    "连接失败，%ss 后重试: %s",
+                    self.reconnect_interval,
+                    exc,
+                )
                 self._close_socket()
                 rospy.sleep(self.reconnect_interval)
 

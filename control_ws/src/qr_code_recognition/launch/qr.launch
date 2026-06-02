@@ -3,19 +3,19 @@
   <arg name="image_ready_timeout_sec" default="0.2" />
   <arg name="image_ready_poll_sec" default="0.01" />
 
-  <!-- 黑框检测（实车验证参数） -->
-  <arg name="min_area_ratio" default="0.008" />
-  <arg name="max_area_ratio" default="0.48" />
-  <arg name="inner_max_area_ratio" default="0.42" />
-  <arg name="aspect_min" default="0.50" />
-  <arg name="aspect_max" default="1.85" />
-  <arg name="min_side" default="20" />
-  <arg name="approx_eps_ratio" default="0.05" />
-  <arg name="area_similar_min" default="0.35" />
-  <arg name="area_similar_max" default="4.0" />
-  <arg name="dedupe_dist_thresh" default="20" />
-  <arg name="crop_margin_ratio" default="0.01" />
-  <arg name="morph_close_iters" default="2" />
+  <!-- 黑框检测（与 control.launch 默认一致） -->
+  <arg name="min_area_ratio" default="0.003" />
+  <arg name="max_area_ratio" default="0.55" />
+  <arg name="inner_max_area_ratio" default="0.50" />
+  <arg name="aspect_min" default="0.35" />
+  <arg name="aspect_max" default="2.5" />
+  <arg name="min_side" default="10" />
+  <arg name="approx_eps_ratio" default="0.06" />
+  <arg name="area_similar_min" default="0.25" />
+  <arg name="area_similar_max" default="5.0" />
+  <arg name="dedupe_dist_thresh" default="30" />
+  <arg name="crop_margin_ratio" default="0.02" />
+  <arg name="morph_close_iters" default="3" />
 
   <node
       pkg="qr_code_recognition"

@@ -25,6 +25,7 @@
 
 #include "move_nav/Board1Decode.h"
 #include "move_nav/Board2Decode.h"
+#include "move_nav/CarLink.h"
 #include "move_nav/JudgementReport.h"
 
 /*
@@ -135,6 +136,29 @@ std::unique_ptr<tf2_ros::TransformListener> g_tf_listener;
 std::string g_map_frame = "map";
 std::string g_base_frame = "base_link";
 bool g_use_tf_pose = true;
+
+// ---------- 双车协调与板一 slot 优先级 ----------
+bool g_dual_car_mode = false;
+std::string g_initial_station = "home";
+std::string g_first_mover_car_id = "1";
+double g_standby_x = 0.0;
+double g_standby_y = -1.5;
+double g_standby_yaw = 0.0;
+int g_deprioritize_delivery_slot = 2;
+int g_slot2_max_visits_before_accept = 2;
+double g_coord_heartbeat_hz = 0.5;
+std::string g_car_link_send_topic = "/car_link/send";
+std::string g_car_link_recv_topic = "/car_link/recv";
+
+std::vector<GoalTask> g_goal_list;
+uint8_t g_station = move_nav::CarLink::STATION_UNKNOWN;
+uint32_t g_carlink_seq = 0;
+bool g_allow_start_round = false;
+bool g_first_round = true;
+bool g_pending_go_home = false;
+std::mutex g_coord_mutex;
+ros::Publisher g_car_link_pub;
+MoveBaseClient* g_move_client_ptr = nullptr;
 
 // 生成固定的识别板一模拟结果，方便视觉节点未完成时先调试导航流程。
 Board1Result makeMockBoard1Result() {
@@ -626,14 +650,163 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     return true;
 }
 
+// 初始化航点表（含 rosparam 注入的 standby）。
+void initGoalList() {
+    g_goal_list.assign(GOAL_LIST.begin(), GOAL_LIST.end());
+    const GoalTask standby = {g_standby_x, g_standby_y, g_standby_yaw, "standby"};
+    if (g_goal_list.size() >= 1) {
+        g_goal_list.insert(g_goal_list.begin() + 1, standby);
+    } else {
+        g_goal_list.push_back(standby);
+    }
+}
+
 // 按任务点名称查找导航点，例如 board1_scan 或 pickup_A。
 const GoalTask* findGoalByName(const std::string& name) {
-    for (const GoalTask& goal : GOAL_LIST) {
+    for (const GoalTask& goal : g_goal_list) {
         if (goal.name == name) {
             return &goal;
         }
     }
     return nullptr;
+}
+
+// slot 1/3/4 立即接受；deprioritize（默认 2）延后至 visit 达上限。
+bool isPreferredDeliverySlot(int slot) {
+    return slot == 1 || slot == 3 || slot == 4;
+}
+
+bool shouldAcceptDeliverySlot(int slot, int visit_round) {
+    if (slot < 1 || slot > 4) {
+        return false;
+    }
+    if (isPreferredDeliverySlot(slot)) {
+        return true;
+    }
+    if (slot == g_deprioritize_delivery_slot) {
+        if (visit_round >= g_slot2_max_visits_before_accept) {
+            ROS_WARN("连续 %d 轮仍为 delivery_slot=%d，接受该任务",
+                     visit_round, slot);
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
+void setStation(uint8_t station) {
+    g_station = station;
+}
+
+void publishCarLink(uint8_t type, int delivery_slot = 0) {
+    if (!g_dual_car_mode || !g_car_link_pub) {
+        return;
+    }
+    move_nav::CarLink msg;
+    msg.type = type;
+    msg.from_id = g_car_id;
+    msg.seq = ++g_carlink_seq;
+    msg.stamp = ros::Time::now();
+    msg.station = g_station;
+    msg.delivery_slot = delivery_slot;
+    g_car_link_pub.publish(msg);
+    ROS_INFO("CarLink 发送 type=%u station=%u slot=%d seq=%u",
+             type, g_station, delivery_slot, msg.seq);
+}
+
+void carLinkRecvCB(const move_nav::CarLink::ConstPtr& msg) {
+    if (!g_dual_car_mode || !msg) {
+        return;
+    }
+    if (msg->from_id == g_car_id) {
+        return;
+    }
+
+    ROS_INFO("CarLink 收到 type=%u from=%s station=%u",
+             msg->type, msg->from_id.c_str(), msg->station);
+
+    if (msg->type == move_nav::CarLink::CARLINK_SCAN_OK) {
+        std::lock_guard<std::mutex> lock(g_coord_mutex);
+        if (g_station == move_nav::CarLink::STATION_STANDBY) {
+            g_pending_go_home = true;
+        }
+    } else if (msg->type == move_nav::CarLink::CARLINK_ROUND_DONE) {
+        std::lock_guard<std::mutex> lock(g_coord_mutex);
+        if (g_station == move_nav::CarLink::STATION_HOME) {
+            g_allow_start_round = true;
+        }
+    }
+}
+
+void coordHeartbeatCB(const ros::TimerEvent& /*event*/) {
+    publishCarLink(move_nav::CarLink::CARLINK_HEARTBEAT, 0);
+}
+
+// 双车：处理待命→home，并等待允许开工。
+void processCoordinationIdle(MoveBaseClient& move_client) {
+    if (!g_dual_car_mode) {
+        return;
+    }
+
+    ros::Rate rate(10);
+    while (ros::ok()) {
+        bool can_start = false;
+        {
+            std::lock_guard<std::mutex> lock(g_coord_mutex);
+            const bool at_home = (g_station == move_nav::CarLink::STATION_HOME);
+            const bool first_mover =
+                g_first_round && (g_car_id == g_first_mover_car_id);
+            can_start = at_home && (g_allow_start_round || first_mover);
+        }
+        if (can_start) {
+            if (g_first_round) {
+                g_first_round = false;
+            }
+            {
+                std::lock_guard<std::mutex> lock(g_coord_mutex);
+                g_allow_start_round = false;
+            }
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(g_coord_mutex);
+            if (g_pending_go_home &&
+                g_station == move_nav::CarLink::STATION_STANDBY) {
+                const GoalTask* home_goal = findGoalByName("home");
+                if (home_goal != nullptr) {
+                    if (movetoPoint(*home_goal, move_client)) {
+                        setStation(move_nav::CarLink::STATION_HOME);
+                        publishCarLink(move_nav::CarLink::CARLINK_GO_HOME_ACK, 0);
+                    }
+                    g_pending_go_home = false;
+                }
+            }
+        }
+
+        ros::spinOnce();
+        rate.sleep();
+    }
+}
+
+bool navigateToInitialStation(MoveBaseClient& move_client) {
+    const std::string target =
+        (g_initial_station == "standby") ? "standby" : "home";
+    const GoalTask* goal = findGoalByName(target);
+    if (goal == nullptr) {
+        ROS_ERROR("找不到初始站位：%s", target.c_str());
+        return false;
+    }
+    ROS_INFO("双车模式：前往初始站位 %s", target.c_str());
+    if (!movetoPoint(*goal, move_client)) {
+        return false;
+    }
+    if (target == "standby") {
+        setStation(move_nav::CarLink::STATION_STANDBY);
+    } else {
+        setStation(move_nav::CarLink::STATION_HOME);
+    }
+    return true;
 }
 
 // 请求识别板一截图；回调只保存图片，本函数拿到图片路径后再调用二维码识别服务。
@@ -758,7 +931,24 @@ bool scanBoard1WithRetry(MoveBaseClient& move_client, Board1Result* result) {
 
         for (int attempt = 1; attempt <= kMaxAttemptsPerVisit; ++attempt) {
             ROS_INFO("识别板一二维码识别，第 %d/%d 次尝试", attempt, kMaxAttemptsPerVisit);
-            if (requestBoard1Vision(15.0, result)) {
+            Board1Result candidate;
+            if (requestBoard1Vision(15.0, &candidate)) {
+                if (!shouldAcceptDeliverySlot(candidate.delivery_slot, visit_round)) {
+                    ROS_WARN(
+                        "delivery_slot=%d 优先级低于 1/3/4（visit=%d/%d），继续重扫",
+                        candidate.delivery_slot,
+                        visit_round,
+                        g_slot2_max_visits_before_accept);
+                    if (attempt < kMaxAttemptsPerVisit) {
+                        ros::Duration(1.0).sleep();
+                    }
+                    continue;
+                }
+                if (result != nullptr) {
+                    *result = candidate;
+                }
+                publishCarLink(move_nav::CarLink::CARLINK_SCAN_OK,
+                               candidate.delivery_slot);
                 return true;
             }
             ROS_WARN("识别板一二维码识别失败（第 %d/%d 次）", attempt, kMaxAttemptsPerVisit);
@@ -915,6 +1105,21 @@ int main(int argc, char* argv[]) {
     pnh.param("use_tf_pose", g_use_tf_pose, g_use_tf_pose);
     pnh.param("map_frame", g_map_frame, g_map_frame);
     pnh.param("base_frame", g_base_frame, g_base_frame);
+    pnh.param("dual_car_mode", g_dual_car_mode, g_dual_car_mode);
+    pnh.param("initial_station", g_initial_station, g_initial_station);
+    pnh.param("first_mover_car_id", g_first_mover_car_id, g_first_mover_car_id);
+    pnh.param("standby_x", g_standby_x, g_standby_x);
+    pnh.param("standby_y", g_standby_y, g_standby_y);
+    pnh.param("standby_yaw", g_standby_yaw, g_standby_yaw);
+    pnh.param("deprioritize_delivery_slot", g_deprioritize_delivery_slot,
+              g_deprioritize_delivery_slot);
+    pnh.param("slot2_max_visits_before_accept", g_slot2_max_visits_before_accept,
+              g_slot2_max_visits_before_accept);
+    pnh.param("coord_heartbeat_hz", g_coord_heartbeat_hz, g_coord_heartbeat_hz);
+    pnh.param("car_link_send_topic", g_car_link_send_topic, g_car_link_send_topic);
+    pnh.param("car_link_recv_topic", g_car_link_recv_topic, g_car_link_recv_topic);
+
+    initGoalList();
 
     if (!ensureDirectoryExists(g_snapshot_dir)) {
         ROS_ERROR("截图保存目录不可用，主程序停止：%s", g_snapshot_dir.c_str());
@@ -922,6 +1127,17 @@ int main(int argc, char* argv[]) {
     }
 
     MoveBaseClient move_client("move_base", true);
+    g_move_client_ptr = &move_client;
+
+    ros::Subscriber car_link_sub;
+    ros::Timer coord_timer;
+    if (g_dual_car_mode) {
+        g_car_link_pub = nh.advertise<move_nav::CarLink>(g_car_link_send_topic, 10);
+        car_link_sub = nh.subscribe(g_car_link_recv_topic, 10, carLinkRecvCB);
+        const double hb_hz = std::max(0.1, g_coord_heartbeat_hz);
+        coord_timer = nh.createTimer(ros::Duration(1.0 / hb_hz), coordHeartbeatCB);
+    }
+
     ros::Subscriber image_sub = nh.subscribe(image_topic, 1, snapshotCB);
     ros::Subscriber odom_sub = nh.subscribe(odom_topic, 10, odomCB);
     if (g_use_tf_pose) {
@@ -964,6 +1180,16 @@ int main(int argc, char* argv[]) {
              g_judgement_report_rate,
              odom_topic.c_str(),
              g_use_tf_pose);
+    ROS_INFO("双车：dual_car_mode=%d，initial_station=%s，first_mover=%s，standby=(%.2f,%.2f,%.2f)",
+             g_dual_car_mode,
+             g_initial_station.c_str(),
+             g_first_mover_car_id.c_str(),
+             g_standby_x,
+             g_standby_y,
+             g_standby_yaw);
+    ROS_INFO("板一 slot 优先级：deprioritize=%d，slot2_accept_after_visits=%d",
+             g_deprioritize_delivery_slot,
+             g_slot2_max_visits_before_accept);
 
     if (!g_use_mock_data) {
         ROS_INFO("等待二维码识别服务：%s", board1_service.c_str());
@@ -993,17 +1219,42 @@ int main(int argc, char* argv[]) {
         ROS_INFO("[模拟导航] 跳过 move_base action server");
     }
 
+    if (g_dual_car_mode) {
+        if (!navigateToInitialStation(move_client)) {
+            ROS_ERROR("无法到达初始站位");
+            return 1;
+        }
+    }
+
     int completed_rounds = 0;
     while (ros::ok() && (g_max_rounds <= 0 || completed_rounds < g_max_rounds)) {
         current_point = 0;
-        const bool ok = runOneQrMission(move_client);
-        const GoalTask* home_goal = findGoalByName("home");
-        if (home_goal != nullptr) {
-            movetoPoint(*home_goal, move_client);
+
+        if (g_dual_car_mode) {
+            processCoordinationIdle(move_client);
+            setStation(move_nav::CarLink::STATION_ON_MISSION);
         }
+
+        const bool ok = runOneQrMission(move_client);
 
         if (!ok) {
             return 1;
+        }
+
+        if (g_dual_car_mode) {
+            const GoalTask* standby_goal = findGoalByName("standby");
+            if (standby_goal != nullptr) {
+                if (!movetoPoint(*standby_goal, move_client)) {
+                    return 1;
+                }
+            }
+            setStation(move_nav::CarLink::STATION_STANDBY);
+            publishCarLink(move_nav::CarLink::CARLINK_ROUND_DONE, 0);
+        } else {
+            const GoalTask* home_goal = findGoalByName("home");
+            if (home_goal != nullptr) {
+                movetoPoint(*home_goal, move_client);
+            }
         }
 
         ++completed_rounds;
