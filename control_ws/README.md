@@ -171,7 +171,7 @@ CV2: 'AB-1'"
 
 ## 双车协调（home / standby + CarLink）
 
-识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调仅负责 **起点轮流**；板一 `delivery_slot` 优先级（1→3→4 优先，2 最低）为**各车本地**逻辑。
+识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调负责 **起点轮流**：前车到达 **A/B/C 任一取样点** 后，对端才从 standby 前往 home；本轮结束发 `ROUND_DONE` 后 home 侧才可开工。板一 `delivery_slot` 优先级为**各车本地**逻辑。
 
 | 小车 | IP | 初始站位 | TCP |
 |------|-----|----------|-----|
@@ -220,7 +220,8 @@ roslaunch move_nav real_car2.launch
 | type | 含义 |
 |------|------|
 | 0 `HEARTBEAT` | 周期站位 |
-| 1 `SCAN_OK` | 板一已接单，对端 standby→home |
+| 1 `SCAN_OK` | （已弃用协调）原板一扫码通知 |
+| 5 `REACHED_ABC` | 前车到达 A/B/C 任一取样点，对端 standby→home |
 | 2 `ROUND_DONE` | 本轮结束在 standby，对端 home 可开工 |
 
 ### 预备点

@@ -160,6 +160,7 @@ uint32_t g_carlink_seq = 0;
 bool g_allow_start_round = false;
 bool g_first_round = true;
 bool g_pending_go_home = false;
+bool g_reached_abc_announced = false;
 std::atomic<bool> g_peer_tcp_connected(false);
 std::mutex g_coord_mutex;
 ros::Publisher g_car_link_pub;
@@ -748,10 +749,11 @@ void carLinkRecvCB(const move_nav::CarLink::ConstPtr& msg) {
     ROS_INFO("CarLink 收到 type=%u from=%s station=%u",
              msg->type, msg->from_id.c_str(), msg->station);
 
-    if (msg->type == move_nav::CarLink::CARLINK_SCAN_OK) {
+    if (msg->type == move_nav::CarLink::CARLINK_REACHED_ABC) {
         std::lock_guard<std::mutex> lock(g_coord_mutex);
         if (g_station == move_nav::CarLink::STATION_STANDBY) {
             g_pending_go_home = true;
+            ROS_INFO("收到对端已到达 ABC 取样点，本车（standby）将前往 home");
         }
     } else if (msg->type == move_nav::CarLink::CARLINK_ROUND_DONE) {
         std::lock_guard<std::mutex> lock(g_coord_mutex);
@@ -836,7 +838,7 @@ void processCoordinationIdle(MoveBaseClient& move_client) {
                 g_peer_tcp_connected.load()) {
                 const GoalTask* home_goal = findGoalByName("home");
                 if (home_goal != nullptr) {
-                    ROS_INFO("收到对端 SCAN_OK，预备点 → home");
+                    ROS_INFO("对端已到达 ABC，预备点 standby → home");
                     if (movetoPoint(*home_goal, move_client)) {
                         setStation(move_nav::CarLink::STATION_HOME);
                         publishCarLink(move_nav::CarLink::CARLINK_GO_HOME_ACK, 0);
@@ -1009,8 +1011,6 @@ bool scanBoard1WithRetry(MoveBaseClient& move_client, Board1Result* result) {
                 if (result != nullptr) {
                     *result = candidate;
                 }
-                publishCarLink(move_nav::CarLink::CARLINK_SCAN_OK,
-                               candidate.delivery_slot);
                 return true;
             }
             ROS_WARN("识别板一二维码识别失败（第 %d/%d 次）", attempt, kMaxAttemptsPerVisit);
@@ -1035,6 +1035,7 @@ bool scanBoard1WithRetry(MoveBaseClient& move_client, Board1Result* result) {
 // 执行一轮完整药房任务：识别板一、取样、识别板二、送样。
 bool runOneQrMission(MoveBaseClient& move_client) {
     ROS_INFO("========== 开始一轮药房任务 ==========");
+    g_reached_abc_announced = false;
 
     Board1Result board1_result;
     if (!scanBoard1WithRetry(move_client, &board1_result)) {
@@ -1069,6 +1070,21 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         }
         if (!movetoPoint(*goal, move_client)) {
             return false;
+        }
+
+        if (g_dual_car_mode && !g_reached_abc_announced) {
+            g_reached_abc_announced = true;
+            int slot_code = 0;
+            if (goal_name == "pickup_A") {
+                slot_code = 1;
+            } else if (goal_name == "pickup_B") {
+                slot_code = 2;
+            } else if (goal_name == "pickup_C") {
+                slot_code = 3;
+            }
+            publishCarLink(move_nav::CarLink::CARLINK_REACHED_ABC, slot_code);
+            ROS_INFO("已到达 ABC 取样点 %s，通知对端 standby 可前往 home",
+                     goal_name.c_str());
         }
 
         ros::Duration(1.5).sleep();
