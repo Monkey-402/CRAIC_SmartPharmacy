@@ -197,6 +197,15 @@ roslaunch move_nav real_car2.launch
 
 改 standby、peer_ip、裁判地址等请只编辑对应 **yaml**，不要改 launch。
 
+**参数优先级（避免踩坑）**
+
+| 入口 | 业务参数（双车/TCP/standby） | 视觉/调试（mock、image_topic 等） |
+|------|------------------------------|-----------------------------------|
+| `sim_car*` / `real_car*` | 以 profile **yaml** 为准 | `control_profile` 内 node param；可用 launch 透传覆盖，如 `mock_navigation:=true` |
+| `control.launch`（单车） | yaml + `dual_car_mode` launch 默认 **false** 覆盖 yaml 里的 true | launch node param 覆盖 yaml 同名键 |
+
+主控节点 **不要使用** `clear_params="true"`，否则会清空 yaml 已加载的 `car_id`、`standby_*` 等。
+
 双车模式下 **TCP 未连接前不会导航**；2 号车 **必须收到 1 号 `ROUND_DONE`** 且在 **home** 才会开工。
 
 ### CarLink 话题与 TCP JSON

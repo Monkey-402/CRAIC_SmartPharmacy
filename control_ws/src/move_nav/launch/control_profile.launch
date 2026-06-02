@@ -1,5 +1,6 @@
 <launch>
-  <!-- 双车 profile 共用栈：由 sim_car1/2、real_car1/2 先 rosparam load 对应 yaml 再 include 本文件 -->
+  <!-- 双车 profile：上游先 rosparam load；业务参数以 yaml 为准。
+       下列 node 内 param 仅覆盖视觉/调试项（与 yaml 键不重复则并存）。 -->
   <arg name="board1_decode_service" default="/yaofang_vision/board1_decode" />
   <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
   <arg name="vision_service_wait_timeout" default="30.0" />

@@ -30,7 +30,9 @@
   <arg name="car_tcp_peer_ip" default="192.168.124.3" doc="1 号车 IP（实车）；双机仿真可改为 192.168.1.104"/>
   <arg name="car_tcp_port" default="9000" />
 
+  <!-- yaml 写入 /yaofang_control_service_node/*；勿对主控节点 clear_params，否则会清掉 yaml -->
   <rosparam file="$(arg judgement_config)" command="load" />
+  <!-- 单车入口默认 false，覆盖 real_car*.yaml 里的 dual_car_mode:true；双车请用 sim_car*/real_car*.launch -->
   <param name="yaofang_control_service_node/dual_car_mode" value="$(arg dual_car_mode)" />
 
   <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
@@ -99,8 +101,7 @@
   <node name="yaofang_control_service_node"
         pkg="move_nav"
         type="yaofang_control_service_node"
-        output="screen"
-        clear_params="true">
+        output="screen">
     <param name="use_mock_data" value="$(arg use_mock_data)" />
     <param name="mock_navigation" value="$(arg mock_navigation)" />
     <param name="max_rounds" value="$(arg max_rounds)" />

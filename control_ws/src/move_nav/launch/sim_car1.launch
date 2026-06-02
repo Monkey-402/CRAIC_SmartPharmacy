@@ -1,4 +1,4 @@
 <launch>
   <rosparam file="$(find move_nav)/config/sim_car1.yaml" command="load" />
-  <include file="$(find move_nav)/launch/control_profile.launch" />
+  <include file="$(find move_nav)/launch/control_profile.launch" pass_all_args="true" />
 </launch>
