@@ -17,6 +17,7 @@
 #include <opencv2/opencv.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
+#include <std_msgs/Bool.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -141,14 +142,17 @@ bool g_use_tf_pose = true;
 bool g_dual_car_mode = false;
 std::string g_initial_station = "home";
 std::string g_first_mover_car_id = "1";
-double g_standby_x = 0.0;
-double g_standby_y = -1.5;
-double g_standby_yaw = 0.0;
+double g_standby_x = -1.125;
+double g_standby_y = 0.207;
+double g_standby_yaw = 0.050;
 int g_deprioritize_delivery_slot = 2;
 int g_slot2_max_visits_before_accept = 2;
 double g_coord_heartbeat_hz = 0.5;
 std::string g_car_link_send_topic = "/car_link/send";
 std::string g_car_link_recv_topic = "/car_link/recv";
+std::string g_peer_connected_topic = "/car_link/peer_connected";
+double g_peer_tcp_wait_timeout = 120.0;
+bool g_require_peer_tcp = true;
 
 std::vector<GoalTask> g_goal_list;
 uint8_t g_station = move_nav::CarLink::STATION_UNKNOWN;
@@ -156,6 +160,7 @@ uint32_t g_carlink_seq = 0;
 bool g_allow_start_round = false;
 bool g_first_round = true;
 bool g_pending_go_home = false;
+std::atomic<bool> g_peer_tcp_connected(false);
 std::mutex g_coord_mutex;
 ros::Publisher g_car_link_pub;
 MoveBaseClient* g_move_client_ptr = nullptr;
@@ -714,6 +719,22 @@ void publishCarLink(uint8_t type, int delivery_slot = 0) {
              type, g_station, delivery_slot, msg.seq);
 }
 
+void peerTcpConnectedCB(const std_msgs::Bool::ConstPtr& msg) {
+    if (!msg) {
+        return;
+    }
+    const bool connected = msg->data;
+    g_peer_tcp_connected.store(connected);
+    if (!connected) {
+        std::lock_guard<std::mutex> lock(g_coord_mutex);
+        g_allow_start_round = false;
+        g_pending_go_home = false;
+        ROS_WARN("车际 TCP 已断开，暂停协调动作直至重连");
+    } else {
+        ROS_INFO("车际 TCP 已连接");
+    }
+}
+
 void carLinkRecvCB(const move_nav::CarLink::ConstPtr& msg) {
     if (!g_dual_car_mode || !msg) {
         return;
@@ -721,6 +742,8 @@ void carLinkRecvCB(const move_nav::CarLink::ConstPtr& msg) {
     if (msg->from_id == g_car_id) {
         return;
     }
+
+    g_peer_tcp_connected.store(true);
 
     ROS_INFO("CarLink 收到 type=%u from=%s station=%u",
              msg->type, msg->from_id.c_str(), msg->station);
@@ -732,10 +755,38 @@ void carLinkRecvCB(const move_nav::CarLink::ConstPtr& msg) {
         }
     } else if (msg->type == move_nav::CarLink::CARLINK_ROUND_DONE) {
         std::lock_guard<std::mutex> lock(g_coord_mutex);
-        if (g_station == move_nav::CarLink::STATION_HOME) {
-            g_allow_start_round = true;
+        g_allow_start_round = true;
+        if (g_station == move_nav::CarLink::STATION_STANDBY) {
+            g_pending_go_home = true;
+            ROS_INFO("收到对端 ROUND_DONE，本车将从 standby 前往 home 后再开工");
+        } else if (g_station == move_nav::CarLink::STATION_HOME) {
+            ROS_INFO("收到对端 ROUND_DONE，本车（在 home）允许开始新一轮");
         }
     }
+}
+
+bool waitForPeerTcpLink() {
+    if (!g_dual_car_mode || !g_require_peer_tcp) {
+        return true;
+    }
+
+    ROS_INFO("等待车际 TCP 连接（话题 %s，超时 %.0fs）...",
+             g_peer_connected_topic.c_str(), g_peer_tcp_wait_timeout);
+
+    ros::Rate rate(5);
+    const ros::WallTime deadline =
+        ros::WallTime::now() + ros::WallDuration(g_peer_tcp_wait_timeout);
+    while (ros::ok() && ros::WallTime::now() < deadline) {
+        if (g_peer_tcp_connected.load()) {
+            ROS_INFO("车际 TCP 已就绪，允许导航");
+            return true;
+        }
+        ros::spinOnce();
+        rate.sleep();
+    }
+
+    ROS_ERROR("等待车际 TCP 连接超时（%.0fs）", g_peer_tcp_wait_timeout);
+    return false;
 }
 
 void coordHeartbeatCB(const ros::TimerEvent& /*event*/) {
@@ -750,13 +801,22 @@ void processCoordinationIdle(MoveBaseClient& move_client) {
 
     ros::Rate rate(10);
     while (ros::ok()) {
+        if (!g_peer_tcp_connected.load()) {
+            ros::spinOnce();
+            rate.sleep();
+            continue;
+        }
+
         bool can_start = false;
         {
             std::lock_guard<std::mutex> lock(g_coord_mutex);
             const bool at_home = (g_station == move_nav::CarLink::STATION_HOME);
-            const bool first_mover =
-                g_first_round && (g_car_id == g_first_mover_car_id);
-            can_start = at_home && (g_allow_start_round || first_mover);
+            const bool is_first_mover = (g_car_id == g_first_mover_car_id);
+            const bool first_round_start =
+                g_first_round && is_first_mover && g_allow_start_round == false;
+            // 2 号车：必须收到 1 号 ROUND_DONE 且已在 home；1 号车首轮可在 home 直接开工
+            can_start = at_home &&
+                        (g_allow_start_round || first_round_start);
         }
         if (can_start) {
             if (g_first_round) {
@@ -772,9 +832,11 @@ void processCoordinationIdle(MoveBaseClient& move_client) {
         {
             std::lock_guard<std::mutex> lock(g_coord_mutex);
             if (g_pending_go_home &&
-                g_station == move_nav::CarLink::STATION_STANDBY) {
+                g_station == move_nav::CarLink::STATION_STANDBY &&
+                g_peer_tcp_connected.load()) {
                 const GoalTask* home_goal = findGoalByName("home");
                 if (home_goal != nullptr) {
+                    ROS_INFO("收到对端 SCAN_OK，预备点 → home");
                     if (movetoPoint(*home_goal, move_client)) {
                         setStation(move_nav::CarLink::STATION_HOME);
                         publishCarLink(move_nav::CarLink::CARLINK_GO_HOME_ACK, 0);
@@ -1118,6 +1180,9 @@ int main(int argc, char* argv[]) {
     pnh.param("coord_heartbeat_hz", g_coord_heartbeat_hz, g_coord_heartbeat_hz);
     pnh.param("car_link_send_topic", g_car_link_send_topic, g_car_link_send_topic);
     pnh.param("car_link_recv_topic", g_car_link_recv_topic, g_car_link_recv_topic);
+    pnh.param("peer_connected_topic", g_peer_connected_topic, g_peer_connected_topic);
+    pnh.param("peer_tcp_wait_timeout", g_peer_tcp_wait_timeout, g_peer_tcp_wait_timeout);
+    pnh.param("require_peer_tcp", g_require_peer_tcp, g_require_peer_tcp);
 
     initGoalList();
 
@@ -1130,10 +1195,13 @@ int main(int argc, char* argv[]) {
     g_move_client_ptr = &move_client;
 
     ros::Subscriber car_link_sub;
+    ros::Subscriber peer_connected_sub;
     ros::Timer coord_timer;
     if (g_dual_car_mode) {
         g_car_link_pub = nh.advertise<move_nav::CarLink>(g_car_link_send_topic, 10);
         car_link_sub = nh.subscribe(g_car_link_recv_topic, 10, carLinkRecvCB);
+        peer_connected_sub =
+            nh.subscribe(g_peer_connected_topic, 1, peerTcpConnectedCB);
         const double hb_hz = std::max(0.1, g_coord_heartbeat_hz);
         coord_timer = nh.createTimer(ros::Duration(1.0 / hb_hz), coordHeartbeatCB);
     }
@@ -1220,6 +1288,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (g_dual_car_mode) {
+        if (!waitForPeerTcpLink()) {
+            ROS_ERROR("双车模式：车际 TCP 未连接，主程序停止");
+            return 1;
+        }
         if (!navigateToInitialStation(move_client)) {
             ROS_ERROR("无法到达初始站位");
             return 1;

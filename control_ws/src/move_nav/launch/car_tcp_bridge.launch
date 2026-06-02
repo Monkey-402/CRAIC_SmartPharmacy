@@ -5,6 +5,7 @@
   <arg name="port" default="9000" />
   <arg name="send_topic" default="/car_link/send" />
   <arg name="recv_topic" default="/car_link/recv" />
+  <arg name="connected_topic" default="/car_link/peer_connected" />
 
   <node name="car_tcp_bridge"
         pkg="move_nav"
@@ -15,5 +16,6 @@
     <param name="port" value="$(arg port)" />
     <param name="send_topic" value="$(arg send_topic)" />
     <param name="recv_topic" value="$(arg recv_topic)" />
+    <param name="connected_topic" value="$(arg connected_topic)" />
   </node>
 </launch>

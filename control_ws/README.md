@@ -188,7 +188,18 @@ roslaunch move_nav control_dual_car_car1.launch enable_judgement_tcp:=true
 roslaunch move_nav control_dual_car_car2.launch enable_judgement_tcp:=true
 ```
 
-或：`control.launch` 加 `dual_car_mode:=true enable_car_tcp:=true car_id:=1|2`。
+或：
+
+```bash
+# 1 号车
+roslaunch move_nav control.launch car_id:=1 dual_car_mode:=true enable_car_tcp:=true
+
+# 2 号车（改 peer 为 1 号车 IP）
+roslaunch move_nav control.launch car_id:=2 dual_car_mode:=true enable_car_tcp:=true \
+  car_tcp_peer_ip:=192.168.1.104
+```
+
+双车模式下 **TCP 未连接前不会导航**；2 号车 **必须收到 1 号 `ROUND_DONE`** 且在 **home** 才会开工（首轮仅 1 号车 `first_mover` 可先动）。
 
 ### CarLink 话题与 TCP JSON
 

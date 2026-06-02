@@ -5,12 +5,14 @@ yaofang_control_service_node:
   car_id: "2"
   dual_car_mode: false
   initial_station: "standby"
-  standby_x: 0.0
-  standby_y: -1.5
-  standby_yaw: 0.0
+  standby_x: -1.125
+  standby_y: 0.207
+  standby_yaw: 0.050
   first_mover_car_id: "1"
   deprioritize_delivery_slot: 2
   slot2_max_visits_before_accept: 2
+  require_peer_tcp: true
+  peer_tcp_wait_timeout: 120.0
   odom_topic: "/odom"
   use_tf_pose: true
   map_frame: "map"

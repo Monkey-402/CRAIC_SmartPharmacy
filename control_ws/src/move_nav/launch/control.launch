@@ -26,6 +26,9 @@
   <arg name="enable_judgement_tcp" default="false" />
   <arg name="dual_car_mode" default="false" doc="home/standby 轮流接力"/>
   <arg name="enable_car_tcp" default="false" doc="启用车际 TCP 桥接"/>
+  <!-- 2 号车 client 连接的对端 IP；1 号车作 server 时此参数仅影响 bridge 默认值 -->
+  <arg name="car_tcp_peer_ip" default="192.168.124.3" doc="1 号车 IP（实车）；双机仿真可改为 192.168.1.104"/>
+  <arg name="car_tcp_port" default="9000" />
 
   <rosparam file="$(arg judgement_config)" command="load" />
   <param name="yaofang_control_service_node/dual_car_mode" value="$(arg dual_car_mode)" />
@@ -116,11 +119,13 @@
     </include>
   </group>
 
-  <!-- 双车协调 TCP 桥接（按 car_id 选 server/client） -->
+  <!-- 双车协调 TCP 桥接（按 car_id 选 server/client，peer_ip 可 launch 覆盖） -->
   <group if="$(arg enable_car_tcp)">
-    <include if="$(eval arg('car_id') == '2')"
-             file="$(find move_nav)/launch/car_tcp_bridge_car2.launch" />
-    <include unless="$(eval arg('car_id') == '2')"
-             file="$(find move_nav)/launch/car_tcp_bridge_car1.launch" />
+    <include file="$(find move_nav)/launch/car_tcp_bridge.launch">
+      <arg if="$(eval arg('car_id') == '2')" name="role" value="client" />
+      <arg unless="$(eval arg('car_id') == '2')" name="role" value="server" />
+      <arg name="peer_ip" value="$(arg car_tcp_peer_ip)" />
+      <arg name="port" value="$(arg car_tcp_port)" />
+    </include>
   </group>
 </launch>

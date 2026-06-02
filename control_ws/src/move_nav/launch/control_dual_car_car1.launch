@@ -1,8 +1,9 @@
 <launch>
-  <!-- 1 号车：home 起点 + TCP server + 双车协调 -->
+  <!-- 1 号车：home 起点 + TCP server（对端连本机 :9000） -->
   <include file="$(find move_nav)/launch/control.launch">
     <arg name="car_id" value="1" />
     <arg name="dual_car_mode" value="true" />
     <arg name="enable_car_tcp" value="true" />
+    <arg name="car_tcp_peer_ip" value="192.168.124.3" />
   </include>
 </launch>

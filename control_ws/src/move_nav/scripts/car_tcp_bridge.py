@@ -8,6 +8,7 @@ import threading
 
 import rospy
 from move_nav.msg import CarLink
+from std_msgs.msg import Bool
 
 
 class CarTcpBridge(object):
@@ -19,7 +20,15 @@ class CarTcpBridge(object):
         self.port = int(rospy.get_param("~port", 9000))
         self.send_topic = rospy.get_param("~send_topic", "/car_link/send")
         self.recv_topic = rospy.get_param("~recv_topic", "/car_link/recv")
+        self.connected_topic = rospy.get_param(
+            "~connected_topic", "/car_link/peer_connected"
+        )
         self.reconnect_interval = float(rospy.get_param("~reconnect_interval", 2.0))
+
+        self._connected_pub = rospy.Publisher(
+            self.connected_topic, Bool, queue_size=1, latch=True
+        )
+        self._publish_connected(False)
 
         self._sock = None
         self._sock_lock = threading.Lock()
@@ -54,6 +63,11 @@ class CarTcpBridge(object):
         self._conn_thread.daemon = True
         self._conn_thread.start()
 
+    def _publish_connected(self, connected):
+        msg = Bool()
+        msg.data = bool(connected)
+        self._connected_pub.publish(msg)
+
     def _close_socket_unlocked(self):
         if self._sock is not None:
             try:
@@ -66,6 +80,7 @@ class CarTcpBridge(object):
                 pass
             self._sock = None
         self._recv_buffer = ""
+        self._publish_connected(False)
 
     def _close_socket(self):
         with self._sock_lock:
@@ -76,6 +91,7 @@ class CarTcpBridge(object):
             self._close_socket_unlocked()
             self._sock = sock
             self._recv_buffer = ""
+            self._publish_connected(True)
 
     @staticmethod
     def _carlink_to_dict(msg):
