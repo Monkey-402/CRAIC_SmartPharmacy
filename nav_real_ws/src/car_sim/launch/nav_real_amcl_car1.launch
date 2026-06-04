@@ -1,0 +1,8 @@
+<launch>
+  <!-- 实车 1 号（124.3）：AMCL 初值 = home，与 move_nav real_car1 initial_station 一致 -->
+  <include file="$(find car_sim)/launch/nav_real_amcl.launch" pass_all_args="true">
+    <arg name="initial_pose_x" value="0.0"/>
+    <arg name="initial_pose_y" value="0.0"/>
+    <arg name="initial_pose_a" value="0.0"/>
+  </include>
+</launch>

@@ -1,7 +1,6 @@
 <launch>
   <!-- 实机导航（Hector SLAM）：hector.launch + move_base，无需预加载地图。
-       依赖外部底盘已发布 TF、/scan_filtered、odom；激光直接用 laser_filter 输出。
-       相机话题对齐可选 nav_real_hector_with_remap.launch；勿与 hector_real.launch 同启。 -->
+       依赖外部底盘 TF、/scan_filtered、/odom；须 chassis.launch pub_odom_tf:=true（不用 EKF）。 -->
 
   <arg name="use_sim_time" default="false"/>
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>

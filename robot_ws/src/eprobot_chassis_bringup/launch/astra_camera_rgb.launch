@@ -1,0 +1,21 @@
+<launch>
+  <!-- OpenNI2 → /camera/rgb/image_raw（树莓派无 /dev/video0 时用此方式，勿与 uvc 同启） -->
+  <arg name="enable_depth" default="false" doc="false=仅 RGB，减轻 Pi 负载"/>
+  <!-- color_mode 见 astra_camera/cfg/Astra.cfg；默认 5=640x480@30 -->
+  <arg name="color_mode" default="5"/>
+
+  <!-- 须在 driver nodelet 启动前写入，作为 dynamic_reconfigure 初值 -->
+  <group ns="camera">
+    <param name="driver/color_mode" value="$(arg color_mode)" type="int"/>
+    <param unless="$(arg enable_depth)" name="driver/depth_registration" value="false" type="bool"/>
+  </group>
+
+  <include file="$(find astra_camera)/launch/astra.launch">
+    <arg name="depth_registration" value="$(arg enable_depth)"/>
+    <arg name="depth_processing" value="$(arg enable_depth)"/>
+    <arg name="depth_registered_processing" value="$(arg enable_depth)"/>
+    <arg name="ir_processing" value="false"/>
+    <arg name="disparity_processing" value="false"/>
+    <arg name="disparity_registered_processing" value="false"/>
+  </include>
+</launch>

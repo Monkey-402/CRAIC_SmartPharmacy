@@ -1,8 +1,30 @@
 <launch>
-  <!-- 实车底盘 + 雷达（按环境变量 ROBOT_TYPE 选 ls01d / lslidar），与主仓库 robot_navigation/robot_lidar.launch 思路一致。
-       使用前请将本包复制到实机 catkin_ws/src，并与 eprobot_start、lslidar_driver、ls01d、robot_navigation 等一起编译。 -->
+  <!-- 实车底盘 + 雷达 + RGB 相机（按环境变量 ROBOT_TYPE 选 ls01d / lslidar）。
+       默认 camera_driver:=astra（astra_camera → /camera/rgb/image_raw）；
+       出厂 UVC 正常时可 camera_driver:=uvc（eprobot_start/astra_rgb_image.launch）。
+       默认 pub_odom_tf:=false，与 nav_real_amcl（EKF）联用；不用 EKF 时 pub_odom_tf:=true。 -->
   <arg name="use_sim_time" default="false"/>
+  <arg name="enable_camera" default="true" doc="false 时不启相机；true 时由 camera_driver 选择驱动"/>
+  <arg name="camera_driver" default="astra" doc="astra | uvc | none（与 enable_camera 同时为 true 时生效）"/>
+  <arg name="camera_enable_depth" default="false" doc="astra 驱动：是否发布深度话题"/>
+  <!-- astra_camera/cfg/Astra.cfg：5=640x480@30（默认），15=1280x960@7（需 patch），3=1280x720@30（Pi 易花屏） -->
+  <arg name="camera_color_mode" default="5" doc="astra RGB 模式码：5=640x480@30（默认），15=1280x960@7，3=1280x720@30"/>
+  <arg name="pub_odom_tf" default="false" doc="false=EKF 发 odom TF；true=底盘发 odom TF（nav_real_amcl_no_ekf）"/>
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
 
-  <include file="$(find eprobot_start)/launch/EPRobot_start.launch"/>
+  <include file="$(find eprobot_chassis_bringup)/launch/EPRobot_chassis.launch">
+    <arg name="is_pub_odom_tf" value="$(arg pub_odom_tf)"/>
+  </include>
+
+  <group if="$(arg enable_camera)">
+    <group if="$(eval camera_driver == 'astra')">
+      <include file="$(find eprobot_chassis_bringup)/launch/astra_camera_rgb.launch">
+        <arg name="enable_depth" value="$(arg camera_enable_depth)"/>
+        <arg name="color_mode" value="$(arg camera_color_mode)"/>
+      </include>
+    </group>
+    <group if="$(eval camera_driver == 'uvc')">
+      <include file="$(find eprobot_start)/launch/astra_rgb_image.launch"/>
+    </group>
+  </group>
 </launch>

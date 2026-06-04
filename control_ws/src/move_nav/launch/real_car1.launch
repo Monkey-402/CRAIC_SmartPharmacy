@@ -1,0 +1,7 @@
+<launch>
+  <rosparam file="$(find move_nav)/config/real_car1.yaml" command="load" />
+  <include file="$(find move_nav)/launch/control_profile.launch" pass_all_args="true" />
+  <include file="$(find move_nav)/launch/judgement_tcp_sender.launch">
+    <arg name="load_judgement_config" value="false" />
+  </include>
+</launch>

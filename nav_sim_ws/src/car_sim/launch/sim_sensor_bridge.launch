@@ -1,0 +1,8 @@
+<launch>
+  <!-- Gazebo 话题/TF 对齐实车：/scan→/scan_filtered，/imu/data→/imu_data，laser_link→base_laser_link -->
+  <node pkg="topic_tools" type="relay" name="scan_filtered_relay" args="/scan /scan_filtered"/>
+  <node pkg="topic_tools" type="relay" name="imu_data_relay" args="/imu/data /imu_data"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="laser_link_alias"
+        args="0 0 0 0 0 0 laser_link base_laser_link 100"/>
+</launch>

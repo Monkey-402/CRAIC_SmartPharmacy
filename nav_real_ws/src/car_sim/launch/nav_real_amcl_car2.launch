@@ -1,0 +1,8 @@
+<launch>
+  <!-- 实车 2 号（124.9）：AMCL 初值 = standby，与 move_nav real_car2 / standby_x/y/yaw 一致 -->
+  <include file="$(find car_sim)/launch/nav_real_amcl.launch" pass_all_args="true">
+    <arg name="initial_pose_x" value="-1.125"/>
+    <arg name="initial_pose_y" value="0.207"/>
+    <arg name="initial_pose_a" value="0.050"/>
+  </include>
+</launch>

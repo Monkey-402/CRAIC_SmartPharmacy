@@ -11,6 +11,7 @@ catkin_package(
 )
 
 catkin_install_python(PROGRAMS
+  scripts/ocr_frame_detector.py
   scripts/ocr_service.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

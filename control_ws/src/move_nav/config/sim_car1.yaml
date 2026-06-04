@@ -1,0 +1,38 @@
+# 双机仿真 — 1 号车（192.168.1.104，TCP server）
+# 启动：roslaunch move_nav sim_car1.launch
+
+yaofang_control_service_node:
+  car_id: "1"
+  dual_car_mode: true
+  initial_station: "home"
+  first_mover_car_id: "1"
+  standby_x: -1.125
+  standby_y: 0.207
+  standby_yaw: 0.050
+  require_peer_tcp: true
+  peer_tcp_wait_timeout: 120.0
+  enable_prestart_countdown: true
+  prestart_countdown_sec: 5.0
+  min_samples_team_round: 4
+  require_judgement_tcp: false
+  judgement_connected_topic: "/judgement/peer_connected"
+  match_start_wait_timeout: 300.0
+  odom_topic: "/odom"
+  use_tf_pose: true
+  map_frame: "map"
+  base_frame: "base_link"
+  enable_judgement_report: true
+  judgement_report_topic: "/judgement/report"
+  judgement_report_rate: 1.5
+  default_cv1: "WAIT-0"
+  default_cv2: ""
+  default_task: "R"
+
+car_tcp_bridge:
+  role: "server"
+  peer_ip: "192.168.1.104"
+  port: 9000
+  send_topic: "/car_link/send"
+  recv_topic: "/car_link/recv"
+  connected_topic: "/car_link/peer_connected"
+  reconnect_interval: 2.0

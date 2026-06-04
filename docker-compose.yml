@@ -28,8 +28,5 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - .:/root/craic:rw
-      - craic-snapshots:/root/snapshots
+      - ../snapshots:/root/snapshots:rw
     working_dir: /root/craic
-
-volumes:
-  craic-snapshots:

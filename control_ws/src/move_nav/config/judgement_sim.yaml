@@ -1,0 +1,23 @@
+# 仿真/实验室网络：小车 192.168.1.104，裁判软件 PC 192.168.1.105
+# 小车 ROS：export ROS_IP=192.168.1.104；笔记本：export ROS_MASTER_URI=http://192.168.1.104:11311
+# 启动：roslaunch move_nav control_sim.launch car_id:=sim enable_judgement_tcp:=true
+
+yaofang_control_service_node:
+  car_id: "1"
+  odom_topic: "/odom"
+  use_tf_pose: true
+  map_frame: "map"
+  base_frame: "base_link"
+  enable_judgement_report: true
+  judgement_report_topic: "/judgement/report"
+  judgement_report_rate: 1.5
+  default_cv1: "WAIT-0"
+  default_cv2: ""
+  default_task: "R"
+
+judgement_tcp_sender:
+  server_ip: "192.168.1.105"
+  server_port: 8888
+  send_rate: 1.5
+  connect_retry_interval: 2.0
+  input_topic: "/judgement/report"
