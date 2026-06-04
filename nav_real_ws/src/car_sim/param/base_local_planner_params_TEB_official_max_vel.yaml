@@ -1,0 +1,77 @@
+TebLocalPlannerROS:
+
+  # =============================================================================
+  # CRAIC 调试：官方 robot_ws_official 对齐「最大速度」TEB 参数
+  # 来源：robot_ws_official/src/robot_navigation/param/EPRobot/teb_local_planner_params.yaml
+  #
+  # 与默认 base_local_planner_params_TEB.yaml 的差异（仅速度/时间相关取自官方）：
+  #   max_vel_x 1.2 | max_vel_x_backwards 0.7 | max_vel_theta 0.5
+  #   acc_lim_x 0.3 | acc_lim_theta 0.4 | weight_optimaltime 12 | weight_max_vel_x 2
+  #
+  # 仍保留 CRAIC 实车：footprint、贴障距离、关闭 homotopy、允许倒车初始化等。
+  #
+  # 启用方式（二选一）：
+  #   roslaunch car_sim nav_real_amcl_car1.launch teb_config:=.../base_local_planner_params_TEB_official_max_vel.yaml
+  #   或临时：rosparam load 后重启 move_base
+  #
+  # 恢复保守默认：teb_config 指向 base_local_planner_params_TEB.yaml
+  # =============================================================================
+
+  odom_topic: odom
+  map_frame: map
+
+  # ====== 运动学约束（对齐官方 EPRobot 速度上限）======
+  max_vel_x: 1.2
+  max_vel_x_backwards: 0.7
+  max_vel_y: 0.0
+  max_vel_theta: 0.5
+  acc_lim_x: 0.3
+  acc_lim_y: 0.0
+  acc_lim_theta: 0.4
+  min_turning_radius: 0.52
+  wheelbase: 0.17
+  cmd_angle_instead_rotvel: false
+
+  # ====== 轨迹生成（dt_ref / lookahead 与官方一致，其余仍用 CRAIC）======
+  teb_autosize: true
+  dt_ref: 0.2
+  dt_hysteresis: 0.08
+  min_samples: 3
+  global_plan_overwrite_orientation: true
+  global_plan_viapoint_sep: 0.25
+  max_global_plan_lookahead_dist: 5.0
+  global_plan_prune_distance: 0.6
+  allow_init_with_backwards_motion: true
+
+  # ====== 目标容差（CRAIC 默认；官方为 xy 0.125 / yaw 0.08）======
+  xy_goal_tolerance: 0.12
+  yaw_goal_tolerance: 0.2
+  free_goal_vel: false
+
+  footprint_model:
+    type: "polygon"
+    vertices: [[-0.145, -0.105], [0.145, -0.105], [0.145, 0.105], [-0.145, 0.105]]
+
+  # ====== 避障（CRAIC 贴障，非官方 0.24/0.32）======
+  min_obstacle_dist: 0.04
+  inflation_dist: 0.05
+  include_costmap_obstacles: true
+  costmap_obstacles_behind_robot_dist: 1.0
+  obstacle_poses_affected: 15
+
+  # ====== 优化权重（速度/时间项对齐官方；倒车/贴线仍偏 CRAIC）======
+  no_inner_iterations: 5
+  no_outer_iterations: 4
+  weight_optimaltime: 12.0
+  weight_max_vel_x: 2.0
+  weight_max_vel_theta: 1.0
+  weight_acc_lim_x: 1.0
+  weight_acc_lim_theta: 1.0
+  weight_kinematics_nh: 1000.0
+  weight_kinematics_forward_drive: 80.0
+  weight_kinematics_turning_radius: 18.0
+  weight_obstacle: 50.0
+  weight_viapoint: 20.0
+  weight_shortest_path: 2.0
+
+  enable_homotopy_class_planning: false

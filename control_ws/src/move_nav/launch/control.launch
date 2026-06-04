@@ -35,22 +35,13 @@
   <!-- 单车入口默认 false，覆盖 real_car*.yaml 里的 dual_car_mode:true；双车请用 sim_car*/real_car*.launch -->
   <param name="yaofang_control_service_node/dual_car_mode" value="$(arg dual_car_mode)" />
 
-  <!-- 二维码节点读取图片前等待文件写完的最长秒数。 -->
-  <arg name="qr_image_ready_timeout_sec" default="0.2" />
+  <!-- 板一 QR：亮区质心 + 全图 pyzbar -->
+  <arg name="qr_image_ready_timeout_sec" default="0.5" />
   <arg name="qr_image_ready_poll_sec" default="0.01" />
-  <!-- QR 黑框检测（实车/仿真统一，原 Gazebo 放宽参数） -->
-  <arg name="qr_min_area_ratio" default="0.003" />
-  <arg name="qr_max_area_ratio" default="0.55" />
-  <arg name="qr_inner_max_area_ratio" default="0.50" />
-  <arg name="qr_aspect_min" default="0.35" />
-  <arg name="qr_aspect_max" default="2.5" />
-  <arg name="qr_min_side" default="10" />
-  <arg name="qr_approx_eps_ratio" default="0.06" />
-  <arg name="qr_area_similar_min" default="0.25" />
-  <arg name="qr_area_similar_max" default="5.0" />
-  <arg name="qr_dedupe_dist_thresh" default="30" />
-  <arg name="qr_crop_margin_ratio" default="0.02" />
-  <arg name="qr_morph_close_iters" default="3" />
+  <arg name="qr_bright_thresh" default="165" />
+  <arg name="qr_min_bright_pixels" default="30" />
+  <arg name="qr_min_qr_area" default="120" />
+  <arg name="qr_crop_margin_ratio" default="0.15" />
 
   <!-- 识别板二 OCR 后端：false=Tesseract(text_recognition)，true=Paddle HTTP(board2_paddle_ocr) -->
   <arg name="use_paddle_ocr" default="false" />
@@ -67,18 +58,10 @@
     <arg name="board1_decode_service" value="$(arg board1_decode_service)" />
     <arg name="image_ready_timeout_sec" value="$(arg qr_image_ready_timeout_sec)" />
     <arg name="image_ready_poll_sec" value="$(arg qr_image_ready_poll_sec)" />
-    <arg name="min_area_ratio" value="$(arg qr_min_area_ratio)" />
-    <arg name="max_area_ratio" value="$(arg qr_max_area_ratio)" />
-    <arg name="inner_max_area_ratio" value="$(arg qr_inner_max_area_ratio)" />
-    <arg name="aspect_min" value="$(arg qr_aspect_min)" />
-    <arg name="aspect_max" value="$(arg qr_aspect_max)" />
-    <arg name="min_side" value="$(arg qr_min_side)" />
-    <arg name="approx_eps_ratio" value="$(arg qr_approx_eps_ratio)" />
-    <arg name="area_similar_min" value="$(arg qr_area_similar_min)" />
-    <arg name="area_similar_max" value="$(arg qr_area_similar_max)" />
-    <arg name="dedupe_dist_thresh" value="$(arg qr_dedupe_dist_thresh)" />
+    <arg name="bright_thresh" value="$(arg qr_bright_thresh)" />
+    <arg name="min_bright_pixels" value="$(arg qr_min_bright_pixels)" />
+    <arg name="min_qr_area" value="$(arg qr_min_qr_area)" />
     <arg name="crop_margin_ratio" value="$(arg qr_crop_margin_ratio)" />
-    <arg name="morph_close_iters" value="$(arg qr_morph_close_iters)" />
   </include>
 
   <!-- 识别板二：文字识别服务，返回化验区等待秒数和播报文字。 -->

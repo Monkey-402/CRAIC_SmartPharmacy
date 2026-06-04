@@ -4,7 +4,7 @@ TebLocalPlannerROS:
   odom_topic: odom
   map_frame: map
 
-  # ====== 运动学约束（实车保守速度；原 F1：max_vel_x 3.5 / max_vel_theta 2.3）======
+  # ====== 运动学约束（实车保守默认；顺滑见 *_smooth.yaml；一半见 *_conservative_half；官方最大见 *_official_max_vel）======
   max_vel_x: 1.0
   max_vel_x_backwards: 0.4
   max_vel_y: 0.0
@@ -31,7 +31,7 @@ TebLocalPlannerROS:
 
   # ====== 目标容差 ======
   xy_goal_tolerance: 0.12
-  yaw_goal_tolerance: 0.1
+  yaw_goal_tolerance: 0.2
   free_goal_vel: false
 
   # ====== 机器人外形（与 costmap_common_params.yaml 一致）======

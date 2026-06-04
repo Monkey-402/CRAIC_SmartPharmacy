@@ -1,21 +1,14 @@
 <launch>
   <arg name="board1_decode_service" default="/yaofang_vision/board1_decode" />
-  <arg name="image_ready_timeout_sec" default="0.2" />
+  <arg name="image_ready_timeout_sec" default="0.5" />
   <arg name="image_ready_poll_sec" default="0.01" />
 
-  <!-- 黑框检测（与 control.launch 默认一致） -->
-  <arg name="min_area_ratio" default="0.003" />
-  <arg name="max_area_ratio" default="0.55" />
-  <arg name="inner_max_area_ratio" default="0.50" />
-  <arg name="aspect_min" default="0.35" />
-  <arg name="aspect_max" default="2.5" />
-  <arg name="min_side" default="10" />
-  <arg name="approx_eps_ratio" default="0.06" />
-  <arg name="area_similar_min" default="0.25" />
-  <arg name="area_similar_max" default="5.0" />
-  <arg name="dedupe_dist_thresh" default="30" />
-  <arg name="crop_margin_ratio" default="0.02" />
-  <arg name="morph_close_iters" default="3" />
+  <!-- 亮区质心 + 全图 pyzbar（见 qr_decoder.py） -->
+  <arg name="bright_thresh" default="165" />
+  <arg name="min_bright_pixels" default="30" />
+  <arg name="min_qr_area" default="120" />
+  <arg name="save_slot_crops" default="true" />
+  <arg name="crop_margin_ratio" default="0.15" />
 
   <node
       pkg="qr_code_recognition"
@@ -25,17 +18,10 @@
     <param name="board1_decode_service" value="$(arg board1_decode_service)" />
     <param name="image_ready_timeout_sec" value="$(arg image_ready_timeout_sec)" />
     <param name="image_ready_poll_sec" value="$(arg image_ready_poll_sec)" />
-    <param name="min_area_ratio" value="$(arg min_area_ratio)" />
-    <param name="max_area_ratio" value="$(arg max_area_ratio)" />
-    <param name="inner_max_area_ratio" value="$(arg inner_max_area_ratio)" />
-    <param name="aspect_min" value="$(arg aspect_min)" />
-    <param name="aspect_max" value="$(arg aspect_max)" />
-    <param name="min_side" value="$(arg min_side)" />
-    <param name="approx_eps_ratio" value="$(arg approx_eps_ratio)" />
-    <param name="area_similar_min" value="$(arg area_similar_min)" />
-    <param name="area_similar_max" value="$(arg area_similar_max)" />
-    <param name="dedupe_dist_thresh" value="$(arg dedupe_dist_thresh)" />
+    <param name="bright_thresh" value="$(arg bright_thresh)" />
+    <param name="min_bright_pixels" value="$(arg min_bright_pixels)" />
+    <param name="min_qr_area" value="$(arg min_qr_area)" />
+    <param name="save_slot_crops" value="$(arg save_slot_crops)" />
     <param name="crop_margin_ratio" value="$(arg crop_margin_ratio)" />
-    <param name="morph_close_iters" value="$(arg morph_close_iters)" />
   </node>
 </launch>

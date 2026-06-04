@@ -12,6 +12,11 @@
 
   <arg name="odom_topic" default="/odometry/filtered" if="$(arg use_ekf)"/>
   <arg name="odom_topic" default="/odom" unless="$(arg use_ekf)"/>
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+  <arg name="teb_config" default="$(find car_sim)/param/base_local_planner_params_TEB.yaml"
+       doc="TEB yaml：默认 / smooth / conservative_half / official_max_vel"/>
 
   <include file="$(find car_sim)/launch/map_server.launch">
     <arg name="map" value="$(arg map)"/>
@@ -23,10 +28,14 @@
 
   <include file="$(find car_sim)/launch/amcl.launch">
     <arg name="odom_topic" value="$(arg odom_topic)"/>
+    <arg name="initial_pose_x" value="$(arg initial_pose_x)"/>
+    <arg name="initial_pose_y" value="$(arg initial_pose_y)"/>
+    <arg name="initial_pose_a" value="$(arg initial_pose_a)"/>
   </include>
 
   <include file="$(find car_sim)/launch/move_base.launch">
     <arg name="odom_topic" value="$(arg odom_topic)"/>
+    <arg name="teb_config" value="$(arg teb_config)"/>
   </include>
 
   <group unless="$(arg no_rviz)">

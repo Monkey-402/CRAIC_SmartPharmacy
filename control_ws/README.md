@@ -111,6 +111,8 @@ roslaunch move_nav control.launch
 用于 CRAIC 智慧药房赛项：订阅 ROS 消息，按规则以 **1–2 Hz** 通过 **TCP/IP** 向裁判软件发送 JSON。  
 规则详见仓库根目录 `judgement.md`。
 
+主控在 **home / standby（起点预备）** 时不发布 `/judgement/report`；**任务中**（`STATION_ON_MISSION`）按 `judgement_report_rate`（默认 **1.5 Hz**）持续发布。`judgement_tcp_sender` 仅在收到新鲜上报时向裁判 TCP 发 JSON；待命时 `connect_retry` 可建连但不发旧数据，**不会因上报超时而反复断连**。
+
 ### 消息定义
 
 话题默认：`/judgement/report`（`move_nav/JudgementReport`）
@@ -146,6 +148,7 @@ roslaunch move_nav judgement_tcp_sender.launch \
 |------|--------|------|
 | `server_ip` | `192.168.1.100` | 裁判软件 IP |
 | `server_port` | `8888` | 裁判软件端口 |
+| `connect_retry_interval` | `2.0` | home/standby 无上报时仍周期性尝试 TCP 连接（秒） |
 | `send_rate` | `1.5` | 发送频率（Hz），规则要求 1–2 |
 | `input_topic` | `/judgement/report` | 订阅话题 |
 
@@ -171,7 +174,13 @@ CV2: 'AB-1'"
 
 ## 双车协调（home / standby + CarLink）
 
-识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调负责 **起点轮流**：前车到达 **A/B/C 任一取样点** 后，对端才从 standby 前往 home；本轮结束发 `ROUND_DONE` 后 home 侧才可开工。板一 `delivery_slot` 优先级为**各车本地**逻辑。
+识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调要点：
+
+- **2 号车首次出工**：在 standby 等待，直到收到对端 **REACHED_ABC** 后前往 home。
+- **`ROUND_DONE` 时机**：本车 **到达 standby** 后发送（携带本轮 `delivery_slot`）；送样段仍可边播报边回 standby。
+- **home 侧出工**：收到对端 `ROUND_DONE`（对端已到 standby）后再从 home 出发开始下一轮。
+- **standby 侧回 home**：收到对端 **REACHED_ABC** 或 **ROUND_DONE**（对端已到 standby）时，从 standby 前往 home。
+- 板一在 **`board1_scan`** 航点扫码；多格有码默认选 **样本最多**，双车累计 **第 4 轮**（`min_samples_team_round`）选 **样本最少** 以省时。
 
 | 小车 | IP | 初始站位 | TCP |
 |------|-----|----------|-----|
@@ -190,12 +199,12 @@ CV2: 'AB-1'"
 roslaunch move_nav sim_car1.launch
 roslaunch move_nav sim_car2.launch
 
-# 实车（含裁判 TCP）
+# 实车（含裁判 TCP）；导航另开终端用 nav_real_amcl_car1 / car2（AMCL 初值 home / standby）
 roslaunch move_nav real_car1.launch
 roslaunch move_nav real_car2.launch
 ```
 
-改 standby、peer_ip、裁判地址等请只编辑对应 **yaml**，不要改 launch。
+改 standby、peer_ip、裁判地址等请只编辑对应 **yaml**；standby 坐标变更时须同步改 `nav_real_amcl_car2.launch` 的 AMCL 初值。
 
 **参数优先级（避免踩坑）**
 
@@ -206,7 +215,17 @@ roslaunch move_nav real_car2.launch
 
 主控节点 **不要使用** `clear_params="true"`，否则会清空 yaml 已加载的 `car_id`、`standby_*` 等。
 
-双车模式下 **TCP 未连接前不会导航**；2 号车 **必须收到 1 号 `ROUND_DONE`** 且在 **home** 才会开工。
+双车模式下，**车际 TCP** 由 `car_tcp_bridge` 启动即监听/重连（不依赖 CarLink 先发）；到 **home/standby** 后再等车际 + 裁判 TCP 就绪并开赛倒计时。**home** 侧需等对端 `ROUND_DONE`（对端已到 standby）再开工（1 号车首轮除外）。
+
+### 开赛倒计时（`enable_prestart_countdown`）
+
+实车/仿真 profile 默认开启（`enable_prestart_countdown: true`）。**无 4 分钟限时**，主控按 `max_rounds` 或手动停止结束。
+
+1. 到达初始站位（home / standby）后，等待 **车际 TCP** + **裁判 TCP**（`/judgement/peer_connected`）。
+2. **1 号车** 终端打印 **5→1 秒** 倒计时，结束时广播 `CarLink` **`MATCH_START`(6)**。
+3. **2 号车** 收到 `MATCH_START` 后与 1 号车同步开始任务循环。
+
+可调参数：`prestart_countdown_sec`（默认 5）、`require_judgement_tcp`（实车 true）。关闭倒计时：`enable_prestart_countdown: false`。
 
 ### CarLink 话题与 TCP JSON
 
@@ -222,20 +241,16 @@ roslaunch move_nav real_car2.launch
 | 0 `HEARTBEAT` | 周期站位 |
 | 1 `SCAN_OK` | （已弃用协调）原板一扫码通知 |
 | 5 `REACHED_ABC` | 前车到达 A/B/C 任一取样点，对端 standby→home |
-| 2 `ROUND_DONE` | 本轮结束在 standby，对端 home 可开工 |
+| 2 `ROUND_DONE` | 本车到达 standby；对端 home 可开始下一轮 |
+| 6 `MATCH_START` | 1 号车开赛倒计时结束，对端同步开始任务 |
 
 ### 预备点
 
 `standby_x/y/yaw` 在 `config/sim_car*.yaml` / `config/real_car*.yaml` 中配置。
 
-### 板一 slot 优先级（单车同样生效）
+### 板一 slot 选择
 
-| 参数 | 默认 |
-|------|------|
-| `deprioritize_delivery_slot` | `2` |
-| `slot2_max_visits_before_accept` | `2` |
-
-扫到 slot 2 时在板一重扫，visit 达上限后才接受 slot 2。
+**不要求四格全扫到**，在 `board1_scan` 抓拍识别。多格有码时默认由 `qr_parser.py` 选 **A/B/C 样本数最多**；双车累计第 N 轮（默认 N=4）改为选 **样本数最少**。相同时按 slot 号打破平局。
 
 ---
 

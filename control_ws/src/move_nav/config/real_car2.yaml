@@ -9,10 +9,14 @@ yaofang_control_service_node:
   standby_x: -1.125
   standby_y: 0.207
   standby_yaw: 0.050
-  deprioritize_delivery_slot: 2
-  slot2_max_visits_before_accept: 2
   require_peer_tcp: true
   peer_tcp_wait_timeout: 120.0
+  enable_prestart_countdown: true
+  prestart_countdown_sec: 5.0
+  min_samples_team_round: 4
+  require_judgement_tcp: true
+  judgement_connected_topic: "/judgement/peer_connected"
+  match_start_wait_timeout: 300.0
   odom_topic: "/odom"
   use_tf_pose: true
   map_frame: "map"
@@ -34,7 +38,9 @@ car_tcp_bridge:
   reconnect_interval: 2.0
 
 judgement_tcp_sender:
-  server_ip: "192.168.124.2"
+  server_ip: "192.168.124.29"
   server_port: 8888
   send_rate: 1.5
+  connect_retry_interval: 2.0
   input_topic: "/judgement/report"
+  connected_topic: "/judgement/peer_connected"

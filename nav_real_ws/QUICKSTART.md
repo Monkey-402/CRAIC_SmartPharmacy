@@ -161,8 +161,17 @@ rviz -d ~/craic/nav_real_ws/src/car_sim/rviz/nav.rviz
 **AMCL**（`nav_real_amcl.launch`）：
 
 - **Fixed Frame** 选 `map`
-- 使用 **2D Pose Estimate** 设置初始位姿（`amcl.launch` 已默认 `initial_pose` 为 0,0,0 时，可微调）
+- 使用 **2D Pose Estimate** 微调初值（双车请用下方 car1/car2 launch，勿两车都点 home）
 - 使用 **2D Nav Goal** 下发导航目标点
+
+**双车 AMCL 初值**（与 `move_nav` home / standby 一致，仅 `nav_real_ws`）：
+
+| 车号 | launch | 初值 (map) |
+|------|--------|------------|
+| 1 号 | `nav_real_amcl_car1.launch` | home **(0, 0, 0)** |
+| 2 号 | `nav_real_amcl_car2.launch` | standby **(-1.125, 0.207, 0.05)** |
+
+无 EKF：`nav_real_amcl_no_ekf_car1.launch` / `nav_real_amcl_no_ekf_car2.launch`。仿真 `nav_sim_ws` 不变。
 
 **Hector**（`nav_real_hector.launch`）：
 
@@ -179,12 +188,86 @@ rviz
 # Fixed Frame 可先选 odom 或 base_footprint
 ```
 
-## 6) 最常改的参数文件
+## 6) TEB 参数预设与启动方式
 
-- TEB：`~/craic/nav_real_ws/src/car_sim/param/base_local_planner_params_TEB.yaml`（当前保守速度：`max_vel_x` 1.0 m/s）
-- Costmap：`~/craic/nav_real_ws/src/car_sim/param/costmap_common_params.yaml`
+参数目录：`~/craic/nav_real_ws/src/car_sim/param/`（仿真同名文件在 `nav_sim_ws/.../param/`）。
 
-**导航已启动、临时降速（与 yaml 当前值一致，无需重启）：**
+| 预设文件 | 用途 | `max_vel_x` | 备注 |
+|----------|------|-------------|------|
+| `base_local_planner_params_TEB.yaml` | **默认保守** | 1.0 | 当前实车默认 |
+| `base_local_planner_params_TEB_smooth.yaml` | **顺滑路径** | 1.0 | 速度同默认，减少弯口反复修角 |
+| `base_local_planner_params_TEB_conservative_half.yaml` | **一半速度** | 0.5 | 调试/窄道降速 |
+| `base_local_planner_params_TEB_official_max_vel.yaml` | **官方最大速度** | 1.2 | 对齐 `robot_ws_official` |
+
+Costmap（与 TEB 独立）：`costmap_common_params.yaml`。
+
+所有带 `move_base` 的 launch 均支持 **`teb_config:=<yaml 路径>`**（经 `nav_real_amcl.launch` → `move_base.launch` 传入）。**改 yaml 后须重启导航 launch** 才会从文件加载；`rosparam set` 仅临时生效。
+
+### 6.1 实车 AMCL 导航（推荐）
+
+先 `source` 工作空间，再任选一种 `teb_config`（不写则用默认保守版）。
+
+```bash
+# 默认保守（1 号车，home 初值）
+roslaunch car_sim nav_real_amcl_car1.launch
+
+# 顺滑路径（线速度 1.0，弯口更稳）
+roslaunch car_sim nav_real_amcl_car1.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+
+# 一半速度
+roslaunch car_sim nav_real_amcl_car1.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_conservative_half.yaml
+
+# 官方最大速度
+roslaunch car_sim nav_real_amcl_car1.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_official_max_vel.yaml
+```
+
+**2 号车**（standby AMCL 初值）：将上面 `nav_real_amcl_car1` 换成 `nav_real_amcl_car2`，`teb_config` 写法不变。
+
+```bash
+roslaunch car_sim nav_real_amcl_car2.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+```
+
+### 6.2 其它导航 launch
+
+```bash
+# 通用 AMCL（可自定 initial_pose_*）
+roslaunch car_sim nav_real_amcl.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+
+# 不启 EKF
+roslaunch car_sim nav_real_amcl_no_ekf.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_conservative_half.yaml
+
+# 仅 move_base（已自行起 map/定位时）
+roslaunch car_sim move_base.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_official_max_vel.yaml
+```
+
+### 6.3 仿真
+
+```bash
+roslaunch car_sim nav_sim.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+```
+
+（在 `nav_sim_ws` 下 `source devel/setup.bash` 后执行；`rospack find car_sim` 指向 sim 包。）
+
+### 6.4 验证是否加载成功
+
+```bash
+rosparam get /move_base/TebLocalPlannerROS/max_vel_x
+rosparam get /move_base/TebLocalPlannerROS/global_plan_viapoint_sep
+# smooth 版应为 0.8；默认应为 0.25
+rostopic hz /cmd_vel
+```
+
+### 6.5 导航已启动、临时改速（无需重启）
+
+仅改速度相关项时可用（与**默认保守 yaml** 数值一致）：
 
 ```bash
 rosparam set /move_base/TebLocalPlannerROS/max_vel_x 1.0
@@ -192,13 +275,15 @@ rosparam set /move_base/TebLocalPlannerROS/max_vel_x_backwards 0.4
 rosparam set /move_base/TebLocalPlannerROS/max_vel_theta 1.0
 rosparam set /move_base/TebLocalPlannerROS/acc_lim_x 0.6
 rosparam set /move_base/TebLocalPlannerROS/acc_lim_theta 0.5
-rosparam set /move_base/TebLocalPlannerROS/weight_optimaltime 2.0
-rosparam set /move_base/TebLocalPlannerROS/weight_max_vel_x 1.0
-# 验证
-rosparam get /move_base/TebLocalPlannerROS/max_vel_x
 ```
 
-改 yaml 后须**重启** `nav_real_amcl.launch` 等导航 launch 才会从文件重新加载。
+顺滑相关项临时试验（重启后会丢）：
+
+```bash
+rosparam set /move_base/TebLocalPlannerROS/global_plan_viapoint_sep 0.8
+rosparam set /move_base/TebLocalPlannerROS/global_plan_overwrite_orientation false
+rosparam set /move_base/TebLocalPlannerROS/weight_optimaltime 1.2
+```
 
 更多说明见 `NAV_REAL_WS.md`。控制节点见 `control_ws/README.md` 与 `~/craic/lh.txt` 中的任务点测试命令。
 

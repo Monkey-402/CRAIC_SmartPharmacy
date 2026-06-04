@@ -27,7 +27,9 @@
 | 定位方式 | 单独启动 | 兼容别名（含 topic_remap，默认不转发） |
 |----------|----------|--------------------------------------|
 | AMCL + EKF（默认） | `nav_real_amcl.launch` | `nav_real_amcl_with_remap.launch` |
+| AMCL + EKF，双车 1/2 号 | `nav_real_amcl_car1.launch` / `nav_real_amcl_car2.launch` | 初值 home / standby |
 | AMCL，无 EKF | `nav_real_amcl_no_ekf.launch` | — |
+| AMCL 无 EKF，双车 | `nav_real_amcl_no_ekf_car1/2.launch` | — |
 | Hector SLAM | `nav_real_hector.launch` | `nav_real_hector_with_remap.launch` |
 
 `nav_real.launch` / `nav_real_with_remap.launch` 为兼容别名，等同 AMCL 版本。

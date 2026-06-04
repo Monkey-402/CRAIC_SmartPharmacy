@@ -1,13 +1,17 @@
 <launch>
   <!-- 参数见 param/amcl_params.yaml（与 nav_sim_ws 相同；update_min_d/a 为 craic 保留值） -->
   <arg name="odom_topic" default="odom"/>
+  <!-- 双车实车：1 号 home(0,0,0)，2 号 standby；见 nav_real_amcl_car1/2.launch -->
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
 
   <node pkg="amcl" type="amcl" name="amcl" output="screen">
     <rosparam file="$(find car_sim)/param/amcl_params.yaml" command="load"/>
 
-    <param name="initial_pose_x" value="0.0"/>
-    <param name="initial_pose_y" value="0.0"/>
-    <param name="initial_pose_a" value="0.0"/>
+    <param name="initial_pose_x" value="$(arg initial_pose_x)"/>
+    <param name="initial_pose_y" value="$(arg initial_pose_y)"/>
+    <param name="initial_pose_a" value="$(arg initial_pose_a)"/>
 
     <remap from="scan" to="/scan_filtered"/>
     <remap from="odom" to="$(arg odom_topic)"/>

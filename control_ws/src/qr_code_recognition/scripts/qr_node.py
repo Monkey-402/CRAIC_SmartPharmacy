@@ -9,7 +9,7 @@ import rospy
 
 from move_nav.srv import Board1Decode, Board1DecodeResponse
 
-from qr_decoder import FrameDetectParams, decode_qr
+from qr_decoder import Board1DecodeParams, decode_qr
 from qr_parser import parse_qr
 
 
@@ -63,7 +63,7 @@ class QRNode:
             "~image_ready_poll_sec",
             0.01,
         )
-        self.frame_params = FrameDetectParams.from_rosparam(rospy)
+        self.decode_params = Board1DecodeParams.from_rosparam(rospy)
         self.service = rospy.Service(
             service_name,
             Board1Decode,
@@ -72,13 +72,10 @@ class QRNode:
 
         rospy.loginfo("QR board1 decode service started: %s", service_name)
         rospy.loginfo(
-            "Frame detect params: aspect=[%.2f, %.2f] area=[%.3f, %.3f] "
-            "crop_margin=%.2f",
-            self.frame_params.aspect_min,
-            self.frame_params.aspect_max,
-            self.frame_params.min_area_ratio,
-            self.frame_params.max_area_ratio,
-            self.frame_params.crop_margin_ratio,
+            "Board1 decode: bright_thresh=%d min_bright_pixels=%d min_qr_area=%.0f",
+            self.decode_params.bright_thresh,
+            self.decode_params.min_bright_pixels,
+            self.decode_params.min_qr_area,
         )
 
     def handle_board1_decode(self, req):
@@ -98,7 +95,7 @@ class QRNode:
             decode_result = decode_qr(
                 image,
                 source_image_path=req.image_path,
-                params=self.frame_params,
+                params=self.decode_params,
             )
         except Exception as exc:
             msg = "decode_exception: %s" % exc
@@ -106,21 +103,31 @@ class QRNode:
             return _failure_response(msg)
 
         if decode_result.error_message:
-            if decode_result.error_message.startswith("frame_detect_failed"):
-                rospy.logerr("[QR] %s", decode_result.error_message)
-            elif decode_result.error_message.startswith("decode_failed"):
-                rospy.logerr("[QR] %s", decode_result.error_message)
-                if req.image_path:
-                    base, _ext = os.path.splitext(req.image_path)
-                    rospy.logerr(
-                        "[QR] 已保存裁剪图供排查: %s_slot[1-4].jpg", base
-                    )
+            rospy.logerr("[QR] %s", decode_result.error_message)
+            meta = decode_result.meta or {}
+            bc = meta.get("bright_center")
+            if bc is not None:
+                rospy.logerr(
+                    "[QR] bright_center=(%.1f, %.1f) raw_hits=%d",
+                    bc[0],
+                    bc[1],
+                    meta.get("raw_decode_count", 0),
+                )
             return _failure_response(decode_result.error_message)
 
         qr_list = decode_result.qr_list
+        meta = decode_result.meta or {}
+        bc = meta.get("bright_center")
+        if bc is not None:
+            rospy.loginfo(
+                "QR bright_center=(%.1f, %.1f) raw_hits=%d",
+                bc[0],
+                bc[1],
+                meta.get("raw_decode_count", 0),
+            )
         if req.image_path:
             base, _ext = os.path.splitext(req.image_path)
-            rospy.loginfo("Frame crops saved: %s_slot[1-4].jpg", base)
+            rospy.loginfo("QR crops (if any): %s_slot[1-4].jpg", base)
 
         rospy.loginfo("QR raw result: %s", qr_list)
         for qr in qr_list:
@@ -133,7 +140,10 @@ class QRNode:
             )
 
         try:
-            has_a, has_b, has_c, delivery_slot, sample_count = parse_qr(qr_list)
+            prefer_fewest = bool(getattr(req, "prefer_fewest_samples", False))
+            has_a, has_b, has_c, delivery_slot, sample_count = parse_qr(
+                qr_list, prefer_fewest=prefer_fewest
+            )
         except Exception as exc:
             msg = "parse_exception: %s" % exc
             rospy.logerr("QR parse failed: %s", exc)
@@ -141,14 +151,18 @@ class QRNode:
 
         if sample_count == 0 or delivery_slot < 1 or delivery_slot > 4:
             msg = (
-                "parse_failed: 已扫到码但内容无效（需含 A/B/C 且 slot 1-4），"
-                "raw=%s" % qr_list
+                "parse_failed: 已扫到 %d 个码但无有效任务（需含 A/B/C 且 slot 1-4），"
+                "raw=%s" % (len(qr_list), qr_list)
             )
             rospy.logerr("[QR] %s", msg)
             return _failure_response(msg)
 
         rospy.loginfo(
-            "Board1 decode result: A=%s B=%s C=%s delivery_slot=%d sample_count=%d",
+            "Board1 decode OK (%d/%d slots, prefer_fewest=%s): "
+            "A=%s B=%s C=%s delivery_slot=%d sample_count=%d",
+            len(qr_list),
+            4,
+            prefer_fewest,
             has_a,
             has_b,
             has_c,

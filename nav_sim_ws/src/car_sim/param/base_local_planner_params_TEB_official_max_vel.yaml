@@ -1,27 +1,39 @@
 TebLocalPlannerROS:
 
-  # 与 nav_real_ws 一致（仿真/实车共用逻辑；homotopy 须关闭）
+  # =============================================================================
+  # CRAIC 调试：官方 robot_ws_official 对齐「最大速度」TEB 参数
+  # 来源：robot_ws_official/src/robot_navigation/param/EPRobot/teb_local_planner_params.yaml
+  #
+  # 与默认 base_local_planner_params_TEB.yaml 的差异（仅速度/时间相关取自官方）：
+  #   max_vel_x 1.2 | max_vel_x_backwards 0.7 | max_vel_theta 0.5
+  #   acc_lim_x 0.3 | acc_lim_theta 0.4 | weight_optimaltime 12 | weight_max_vel_x 2
+  #
+  # 仍保留 CRAIC 实车：footprint、贴障距离、关闭 homotopy、允许倒车初始化等。
+  #
+  # 启用：roslaunch ... move_base.launch teb_config:=$(find car_sim)/param/base_local_planner_params_TEB_official_max_vel.yaml
+  # =============================================================================
+
   odom_topic: odom
   map_frame: map
 
-  max_vel_x: 1.0
-  max_vel_x_backwards: 0.4
+  max_vel_x: 1.2
+  max_vel_x_backwards: 0.7
   max_vel_y: 0.0
-  max_vel_theta: 1.0
-  acc_lim_x: 0.6
+  max_vel_theta: 0.5
+  acc_lim_x: 0.3
   acc_lim_y: 0.0
-  acc_lim_theta: 0.5
+  acc_lim_theta: 0.4
   min_turning_radius: 0.52
   wheelbase: 0.17
   cmd_angle_instead_rotvel: false
 
   teb_autosize: true
-  dt_ref: 0.3
-  dt_hysteresis: 0.1
+  dt_ref: 0.2
+  dt_hysteresis: 0.08
   min_samples: 3
   global_plan_overwrite_orientation: true
   global_plan_viapoint_sep: 0.25
-  max_global_plan_lookahead_dist: 2.0
+  max_global_plan_lookahead_dist: 5.0
   global_plan_prune_distance: 0.6
   allow_init_with_backwards_motion: true
 
@@ -41,8 +53,8 @@ TebLocalPlannerROS:
 
   no_inner_iterations: 5
   no_outer_iterations: 4
-  weight_optimaltime: 2.0
-  weight_max_vel_x: 1.0
+  weight_optimaltime: 12.0
+  weight_max_vel_x: 2.0
   weight_max_vel_theta: 1.0
   weight_acc_lim_x: 1.0
   weight_acc_lim_theta: 1.0

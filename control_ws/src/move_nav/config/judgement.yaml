@@ -22,7 +22,8 @@ yaofang_control_service_node:
 
 # judgement_tcp_sender 节点参数（由 control.launch 按需拉起）
 judgement_tcp_sender:
-  server_ip: "192.168.124.2"
+  server_ip: "192.168.124.29"
   server_port: 8888
   send_rate: 1.5
+  connect_retry_interval: 2.0
   input_topic: "/judgement/report"

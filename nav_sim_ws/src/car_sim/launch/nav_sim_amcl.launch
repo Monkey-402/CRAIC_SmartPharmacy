@@ -5,6 +5,8 @@
 
   <arg name="map" default="map_sim.yaml" doc="map yaml under car_sim/map"/>
   <arg name="no_rviz" default="false"/>
+  <arg name="teb_config" default="$(find car_sim)/param/base_local_planner_params_TEB.yaml"
+       doc="TEB yaml：默认 / smooth / conservative_half / official_max_vel"/>
 
   <include file="$(find car_sim)/launch/car_urdf.launch"/>
 
@@ -22,6 +24,7 @@
 
   <include file="$(find car_sim)/launch/move_base.launch">
     <arg name="odom_topic" value="/odometry/filtered"/>
+    <arg name="teb_config" value="$(arg teb_config)"/>
   </include>
 
   <group unless="$(arg no_rviz)">

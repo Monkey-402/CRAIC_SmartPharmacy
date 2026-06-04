@@ -67,10 +67,28 @@ roslaunch move_nav control_sim.launch
 roslaunch car_sim nav_sim.launch
 ```
 
-## 6) 最常改的两个参数文件
+## 6) TEB 参数预设与启动
 
-- TEB：`~/craic/nav_sim_ws/src/car_sim/param/base_local_planner_params_TEB.yaml`
-- Costmap：`~/craic/nav_sim_ws/src/car_sim/param/costmap_common_params.yaml`
+与实车相同四套预设，目录：`~/craic/nav_sim_ws/src/car_sim/param/`。完整说明见 **`nav_real_ws/QUICKSTART.md` §6**。
+
+| 文件 | 说明 |
+|------|------|
+| `base_local_planner_params_TEB.yaml` | 默认保守 |
+| `base_local_planner_params_TEB_smooth.yaml` | 顺滑（速度同默认） |
+| `base_local_planner_params_TEB_conservative_half.yaml` | 一半速度 |
+| `base_local_planner_params_TEB_official_max_vel.yaml` | 官方最大速度 |
+
+```bash
+source ~/craic/nav_sim_ws/devel/setup.bash
+
+roslaunch car_sim nav_sim.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+
+roslaunch car_sim nav_sim_amcl.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_conservative_half.yaml
+```
+
+Costmap：`costmap_common_params.yaml`。
 
 ## 7) Docker（Ubuntu 18.04 + ROS Melodic）
 
