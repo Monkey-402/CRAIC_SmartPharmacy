@@ -208,7 +208,7 @@ bool directoryExists(const std::string& directory) {
     return stat(directory.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
 }
 
-// 如果目录不存在，创建整个路径
+// 如果目录不存在，创建整个路径（模拟mkdir -p)
 bool ensureDirectoryExists(const std::string& directory) {
     if (directory.empty()) {
         ROS_ERROR("截图保存目录为空");
