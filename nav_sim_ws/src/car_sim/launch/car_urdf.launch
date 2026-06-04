@@ -16,17 +16,16 @@
   <param name="robot_description" textfile="$(find car_simple)/urdf/car_simple.urdf" />
     
   <!-- 在 Gazebo 中生成机器人模型 -->
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
+  <!-- <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
         args="-urdf -model car_simple -param robot_description -x 1.74 -y 1.74 -z 0.1 -Y 3.14"
+        respawn="false" output="screen" /> -->
+        
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" 
+        args="-urdf -model car_simple -param robot_description -x 0.271 -y -2.097 -z 0.1 -Y 0.0"
         respawn="false" output="screen" />
   
-  <!-- 发布机器人状态 TF -->
+  <!-- 发布机器人状态 TF（全 fixed 关节，无需 joint_state_publisher；Py2 解析 URDF 勿含中文注释） -->
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen"/>
-  
-  <!-- 发布关节状态 -->
-  <node pkg="joint_state_publisher" name="joint_state_publisher" type="joint_state_publisher" output="screen">
-    <param name="use_gui" value="false"/>
-  </node>
 
   <!-- 可选: 加载ROS控制参数 -->
   <!-- <rosparam file="$(find mowen2)/config/control.yaml" command="load"/> -->

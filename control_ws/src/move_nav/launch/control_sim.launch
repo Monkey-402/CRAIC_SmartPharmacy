@@ -1,0 +1,4 @@
+<launch>
+  <!-- Gazebo 仿真入口；与 control.launch 相同，命令行参数可透传（如 use_paddle_ocr:=true） -->
+  <include file="$(find move_nav)/launch/control.launch" pass_all_args="true" />
+</launch>

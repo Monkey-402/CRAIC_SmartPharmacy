@@ -165,7 +165,7 @@ int main(int argc, char* argv[]){
     ros::init(argc,argv,"nav_move");
     ros::NodeHandle nh;
     MoveBaseClient MoveClient("move_base",true);
-    ros::Subscriber sub = nh.subscribe("/camera/image_raw",1,snapshotCB);
+    ros::Subscriber sub = nh.subscribe("/camera/rgb/image_raw",1,snapshotCB);
     ros::Subscriber result_sub = nh.subscribe("smartcommunity/task_result", 10, taskResultCB);
     g_task_request_pub = nh.advertise<std_msgs::String>("smartcommunity/task_request", 10);
 

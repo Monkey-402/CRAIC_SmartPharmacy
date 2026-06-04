@@ -1,0 +1,25 @@
+--- a/cfg/Astra.cfg
++++ b/cfg/Astra.cfg
+@@ -21,7 +21,7 @@ output_mode_enum = gen.enum([  gen.const(  "SXGA_30Hz", int_t, 1,  "1280x1024@30Hz"),
+                                gen.const( "QQVGA_60Hz", int_t, 12, "160x120@60Hz"),
+                                gen.const("640400_30Hz", int_t, 13, "640x400@30Hz"),
+                                gen.const("320200_30Hz", int_t, 14, "320x200@30Hz"),
+-                               gen.const("1280800_7Hz", int_t, 15, "1280x800@7Hz"),
++                               gen.const("1280960_7Hz", int_t, 15, "1280x960@7Hz"),
+                                gen.const("1280800_30Hz", int_t, 16, "1280x800@30Hz"),
+                                gen.const("640400_60Hz", int_t, 17, "640x400@60Hz")],
+                                "output mode")
+--- a/src/astra_driver.cpp
++++ b/src/astra_driver.cpp
+@@ -1269,9 +1269,9 @@ void AstraDriver::genVideoModeTableMap()
+ 
+   video_modes_lookup_[14] = video_mode;
+ 
+-  // 1280*800_7Hz
++  // 1280*960_7Hz（Orbbec 官网 color 档）
+   video_mode.x_resolution_ = 1280;
+-  video_mode.y_resolution_ = 800;
++  video_mode.y_resolution_ = 960;
+   video_mode.frame_rate_ = 7;
+ 
+   video_modes_lookup_[15] = video_mode;

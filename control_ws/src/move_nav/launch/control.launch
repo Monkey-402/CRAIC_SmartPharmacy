@@ -1,32 +1,115 @@
 <launch>
-  <!-- 1. YOLO-ONNX 检测服务 -->
-  <node name="yolo_onnx_service_node"
-        pkg="yolo_onnx_ros"
-        type="yolo_onnx_service_node.py"
-        output="screen">
-    <param name="model_path"
-           value="$(find yolo_onnx_ros)/models/best.onnx" />
-    <param name="input_topic"
-           value="/camera/image_raw" />
-    <param name="conf_threshold" value="0.8" />
-    <param name="iou_threshold"  value="0.4" />
-  </node>
+  <!-- 识别板一二维码服务名：主控用它调用二维码节点，二维码节点用它注册 ROS service。 -->
+  <arg name="board1_decode_service" default="/yaofang_vision/board1_decode" />
+  <!-- 识别板二文字服务名：主控用它调用 OCR 节点，OCR 节点用它注册 ROS service。 -->
+  <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
 
-  <!-- 2. 车牌 OCR 服务 -->
-  <node name="license_plate_ocr_server"
-        pkg="license_plate_ocr"
-        type="license_plate_server.py"
-        output="screen">
-    <param name="model_path"
-           value="$(find license_plate_ocr)/models/best.onnx" />
-    <param name="conf_thres" value="0.4" />
-    <param name="iou_thres"  value="0.5" />
-  </node>
+  <!-- 主控启动后等待视觉服务就绪的最长秒数；OCR 首次加载慢时可适当调大。 -->
+  <arg name="vision_service_wait_timeout" default="30.0" />
+  <!-- 正式流程默认调用真实视觉服务，不使用内置假数据。 -->
+  <arg name="use_mock_data" default="false" />
+  <!-- 正式流程默认连接 move_base，不模拟导航。 -->
+  <arg name="mock_navigation" default="false" />
+  <!-- 默认连续运行；需要单轮测试时可通过 max_rounds:=1 覆盖。 -->
+  <arg name="max_rounds" default="0" />
+  <!-- 语音目录：用包路径展开，避免不同队员工作区根目录不一致。 -->
+  <arg name="audio_dir" default="$(find move_nav)/audio" />
+  <!-- 截图 / QR 裁剪 / OCR 调试图保存在 control_ws/src/snapshots -->
+  <arg name="snapshot_dir" default="$(find move_nav)/../snapshots/" />
+  <!-- 默认与官方 uvc_camera 一致：/camera/rgb/image_raw；离线测图时用 test_image_publisher + image_topic:=/yaofang_test/image_raw -->
+  <arg name="image_topic" default="/camera/rgb/image_raw" />
+  <!-- 裁判上报：car_id 选配置集（1/2=赛场 .124.x，sim=实验室 小车.104 裁判.105） -->
+  <arg name="car_id" default="1" doc="1|2|sim → real_car1/2.yaml 或 judgement_sim.yaml；双车请用 sim_car*/real_car*.launch"/>
+  <arg if="$(eval arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/judgement_sim.yaml"/>
+  <arg if="$(eval arg('car_id') == '2')" name="judgement_config" default="$(find move_nav)/config/real_car2.yaml"/>
+  <arg unless="$(eval arg('car_id') == '2' or arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/real_car1.yaml"/>
+  <arg name="enable_judgement_tcp" default="false" />
+  <arg name="dual_car_mode" default="false" doc="home/standby 轮流接力"/>
+  <arg name="enable_car_tcp" default="false" doc="启用车际 TCP 桥接"/>
+  <!-- 2 号车 client 连接的对端 IP；1 号车作 server 时此参数仅影响 bridge 默认值 -->
+  <arg name="car_tcp_peer_ip" default="192.168.124.3" doc="1 号车 IP（实车）；双机仿真可改为 192.168.1.104"/>
+  <arg name="car_tcp_port" default="9000" />
 
-  <!-- 3. 自定义 C++ 控制节点 -->
-  <node name="control_node"
+  <!-- yaml 写入 /yaofang_control_service_node/*；勿对主控节点 clear_params，否则会清掉 yaml -->
+  <rosparam file="$(arg judgement_config)" command="load" />
+  <!-- 单车入口默认 false，覆盖 real_car*.yaml 里的 dual_car_mode:true；双车请用 sim_car*/real_car*.launch -->
+  <param name="yaofang_control_service_node/dual_car_mode" value="$(arg dual_car_mode)" />
+
+  <!-- 板一 QR：亮区质心 + 全图 pyzbar -->
+  <arg name="qr_image_ready_timeout_sec" default="0.5" />
+  <arg name="qr_image_ready_poll_sec" default="0.01" />
+  <arg name="qr_bright_thresh" default="165" />
+  <arg name="qr_min_bright_pixels" default="30" />
+  <arg name="qr_min_qr_area" default="120" />
+  <arg name="qr_crop_margin_ratio" default="0.15" />
+
+  <!-- 识别板二 OCR 后端：false=Tesseract(text_recognition)，true=Paddle HTTP(board2_paddle_ocr) -->
+  <arg name="use_paddle_ocr" default="false" />
+  <!-- Paddle 需先在本机启动 HTTP 服务：roscd board2_paddle_ocr && ./run_paddle_ocr_server.sh -->
+  <arg name="paddle_ocr_url" default="http://127.0.0.1:8765" />
+  <arg name="paddle_ocr_timeout" default="120.0" />
+  <arg name="paddle_ocr_use_keyword_inference" default="true" />
+
+  <!-- OCR（Tesseract）：暗色遮罩 → A4 框检测 → 同色遮罩 OCR -->
+  <arg name="ocr_dark_mask_threshold" default="120" />
+
+  <!-- 识别板一：二维码识别服务，返回 A/B/C 取样窗口和送达窗口。 -->
+  <include file="$(find qr_code_recognition)/launch/qr.launch">
+    <arg name="board1_decode_service" value="$(arg board1_decode_service)" />
+    <arg name="image_ready_timeout_sec" value="$(arg qr_image_ready_timeout_sec)" />
+    <arg name="image_ready_poll_sec" value="$(arg qr_image_ready_poll_sec)" />
+    <arg name="bright_thresh" value="$(arg qr_bright_thresh)" />
+    <arg name="min_bright_pixels" value="$(arg qr_min_bright_pixels)" />
+    <arg name="min_qr_area" value="$(arg qr_min_qr_area)" />
+    <arg name="crop_margin_ratio" value="$(arg qr_crop_margin_ratio)" />
+  </include>
+
+  <!-- 识别板二：文字识别服务，返回化验区等待秒数和播报文字。 -->
+  <group unless="$(arg use_paddle_ocr)">
+    <include file="$(find text_recognition)/launch/ocr_service.launch">
+      <arg name="board2_decode_service" value="$(arg board2_decode_service)" />
+      <arg name="dark_mask_threshold" value="$(arg ocr_dark_mask_threshold)" />
+    </include>
+  </group>
+  <group if="$(arg use_paddle_ocr)">
+    <include file="$(find board2_paddle_ocr)/launch/ocr_paddle_service.launch">
+      <arg name="board2_decode_service" value="$(arg board2_decode_service)" />
+      <arg name="paddle_ocr_url" value="$(arg paddle_ocr_url)" />
+      <arg name="paddle_ocr_timeout" value="$(arg paddle_ocr_timeout)" />
+      <arg name="use_keyword_inference" value="$(arg paddle_ocr_use_keyword_inference)" />
+    </include>
+  </group>
+
+  <!-- 药房主控：负责导航、拍照、调用视觉服务并执行取样/送样流程。 -->
+  <node name="yaofang_control_service_node"
         pkg="move_nav"
-        type="control_node"
+        type="yaofang_control_service_node"
         output="screen">
+    <param name="use_mock_data" value="$(arg use_mock_data)" />
+    <param name="mock_navigation" value="$(arg mock_navigation)" />
+    <param name="max_rounds" value="$(arg max_rounds)" />
+    <param name="board1_detection_service" value="$(arg board1_decode_service)" />
+    <param name="board2_detection_service" value="$(arg board2_decode_service)" />
+    <param name="vision_service_wait_timeout" value="$(arg vision_service_wait_timeout)" />
+    <param name="audio_dir" value="$(arg audio_dir)" />
+    <param name="snapshot_dir" value="$(arg snapshot_dir)" />
+    <param name="image_topic" value="$(arg image_topic)" />
   </node>
+
+  <!-- 裁判软件 TCP 上报：订阅主控发布的 JudgementReport -->
+  <group if="$(arg enable_judgement_tcp)">
+    <include file="$(find move_nav)/launch/judgement_tcp_sender.launch">
+      <arg name="load_judgement_config" value="false"/>
+    </include>
+  </group>
+
+  <!-- 双车协调 TCP 桥接（按 car_id 选 server/client，peer_ip 可 launch 覆盖） -->
+  <group if="$(arg enable_car_tcp)">
+    <include file="$(find move_nav)/launch/car_tcp_bridge.launch">
+      <arg if="$(eval arg('car_id') == '2')" name="role" value="client" />
+      <arg unless="$(eval arg('car_id') == '2')" name="role" value="server" />
+      <arg name="peer_ip" value="$(arg car_tcp_peer_ip)" />
+      <arg name="port" value="$(arg car_tcp_port)" />
+    </include>
+  </group>
 </launch>

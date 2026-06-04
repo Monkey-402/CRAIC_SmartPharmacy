@@ -1,5 +1,7 @@
 # Quickstart
 
+> **总览**：见 [`../QUICKSTART.md`](../QUICKSTART.md)。下文为仿真、建图与 Docker 细节。
+
 ## 1) 一次性准备
 
 ```bash
@@ -15,8 +17,42 @@ source ~/craic/nav_sim_ws/devel/setup.bash
 
 ## 3) 启动仿真导航
 
+**与实车话题对齐（推荐，含 EKF + AMCL）：**
+
+```bash
+roslaunch car_sim nav_sim_amcl.launch
+```
+
+话题与 `nav_real_amcl` 一致：`/scan_filtered`、`/imu_data`、`/odometry/filtered`、`base_laser_link`、`IMU_link`。
+
+**轻量 AMCL（无 EKF，仍走对齐后的话题名）：**
+
 ```bash
 roslaunch car_sim nav_sim.launch
+```
+
+### 3.1) Hector 建图（生成实机用 map_sim）
+
+默认 **200×200** 栅格（`hector.launch` 的 `map_size`，0.05m 下约 10m×10m）：
+
+```bash
+roslaunch car_sim hector_sim.launch
+# 键盘 teleop 走遍场地后：
+roslaunch car_sim map_save.launch
+cp src/car_sim/map/map_sim.{pgm,yaml} ../nav_real_ws/src/car_sim/map/
+```
+
+场地更大时可 `roslaunch car_sim hector_sim.launch map_size:=256`。
+
+导航栈坐标系已对齐官方：**`base_footprint`**（与 `car_simple.urdf`、实车 `EPRobot_start` 一致）。
+
+`sim_sensor_bridge.launch` 将 Gazebo 的 `/scan`、`/imu/data` 对齐为实车的 `/scan_filtered`、`/imu_data`，并发布 `laser_link→base_laser_link`、`imu_link→IMU_link` 静态 TF。
+
+RGB 相机：`car_simple.urdf` 为 **640×480@30Hz**，话题 **`/camera/rgb/image_raw`**。药房主控请用仿真专用 launch（放宽 QR 黑框检测）：
+
+```bash
+source ~/craic/control_ws/devel/setup.bash
+roslaunch move_nav control_sim.launch
 ```
 
 ## 4) 在 RViz 里常用操作
@@ -31,8 +67,163 @@ roslaunch car_sim nav_sim.launch
 roslaunch car_sim nav_sim.launch
 ```
 
-## 6) 最常改的两个参数文件
+## 6) TEB 参数预设与启动
 
-- TEB：`~/craic/nav_sim_ws/src/car_sim/param/base_local_planner_params_TEB.yaml`
-- Costmap：`~/craic/nav_sim_ws/src/car_sim/param/costmap_common_params.yaml`
+与实车相同四套预设，目录：`~/craic/nav_sim_ws/src/car_sim/param/`。完整说明见 **`nav_real_ws/QUICKSTART.md` §6**。
+
+| 文件 | 说明 |
+|------|------|
+| `base_local_planner_params_TEB.yaml` | 默认保守 |
+| `base_local_planner_params_TEB_smooth.yaml` | 顺滑（速度同默认） |
+| `base_local_planner_params_TEB_conservative_half.yaml` | 一半速度 |
+| `base_local_planner_params_TEB_official_max_vel.yaml` | 官方最大速度 |
+
+```bash
+source ~/craic/nav_sim_ws/devel/setup.bash
+
+roslaunch car_sim nav_sim.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+
+roslaunch car_sim nav_sim_amcl.launch \
+  teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_conservative_half.yaml
+```
+
+Costmap：`costmap_common_params.yaml`。
+
+## 7) Docker（Ubuntu 18.04 + ROS Melodic）
+
+在宿主机（如 Pop!_OS / Ubuntu 24.04）上用容器跑仿真，无需本机安装 Melodic。镜像定义在仓库根目录 `craic/Dockerfile`。
+
+### 7.1) 安装 Docker 与镜像加速
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker $USER
+newgrp docker   # 或注销后重新登录
+```
+
+国内直连 Docker Hub 常出现 `i/o timeout`，建议配置镜像加速。下面以第三方加速 `docker.1ms.run` 为例（地址可能变动，失效时可搜索「Docker 镜像加速」替换）：
+
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<'EOF'
+{
+  "registry-mirrors": ["https://docker.1ms.run"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+确认已生效：
+
+```bash
+docker info | grep -A3 "Registry Mirrors"
+```
+
+应能看到 `https://docker.1ms.run/`。再测拉取：
+
+```bash
+docker pull hello-world
+docker run --rm hello-world
+```
+
+> 若已有 `/etc/docker/daemon.json`（例如配过代理），请把 `registry-mirrors` **合并**进同一 JSON，不要直接覆盖丢配置。
+
+### 7.2) 构建镜像
+
+```bash
+cd ~/craic    # 或你的 craic 仓库路径
+docker build -t craic:melodic .
+```
+
+镜像构建时会一并编译 `control_ws`（含 Python 2 的 OCR / 二维码依赖）。
+
+### 7.3) 允许 GUI（Gazebo / RViz）
+
+```bash
+xhost +local:docker
+```
+
+若容器内出现 `libGL` / `amdgpu` 相关报错，可在启动前加：
+
+```bash
+export LIBGL_ALWAYS_SOFTWARE=1
+```
+
+### 7.4) 进入容器终端
+
+将宿主机 `~/craic` 挂载到容器内 `/root/craic`，改代码后可在容器内 `catkin_make`，无需每次重建镜像：
+
+```bash
+docker run --rm -it \
+  --net=host \
+  -e DISPLAY=$DISPLAY \
+  -e QT_X11_NO_MITSHM=1 \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v ~/CAIR/craic:/root/craic \
+  craic:melodic bash
+```
+
+容器内工作空间已编译在 `/root/craic/`。启动仿真前执行：
+
+```bash
+source /root/craic/nav_sim_ws/devel/setup.bash
+roslaunch car_sim nav_sim.launch
+```
+
+> 若 `rospack find car_sim` 失败，说明未 source 上述 `setup.bash`。
+
+也可一条命令直接启动（entrypoint 会自动 source 工作空间）：
+
+```bash
+docker run --rm -it \
+  --net=host \
+  -e DISPLAY=$DISPLAY \
+  -e QT_X11_NO_MITSHM=1 \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v ~/craic:/root/craic \
+  craic:melodic \
+  roslaunch car_sim nav_sim.launch
+```
+
+### 7.5) 使用 docker compose
+
+```bash
+cd ~/craic
+xhost +local:docker
+docker compose build
+docker compose run --rm craic bash
+# 或
+docker compose run --rm craic roslaunch car_sim nav_sim.launch
+```
+
+### 7.6) 修改代码后
+
+容器内源码在 `/root/craic/`。
+
+- **已按 7.4 挂载 `~/craic`**：在容器内重新编译即可：
+
+  ```bash
+  cd /root/craic/nav_sim_ws && catkin_make
+  source /root/craic/nav_sim_ws/devel/setup.bash
+  ```
+
+- **未挂载卷**（仅用镜像内快照）：在宿主机改完代码后需**重新构建镜像**：
+
+  ```bash
+  cd ~/craic
+  docker build -t craic:melodic .
+  ```
+
+### 7.7) 常见问题
+
+| 现象 | 处理 |
+|------|------|
+| `docker: command not found` | 安装 `docker.io`，并将用户加入 `docker` 组 |
+| 拉镜像 `i/o timeout` | 配置 `registry-mirrors`（见 7.1） |
+| `car_sim` 找不到 | `source /root/craic/nav_sim_ws/devel/setup.bash` |
+| RViz/Gazebo 无窗口 | 检查 `xhost +local:docker` 与 `-e DISPLAY`、挂载 `/tmp/.X11-unix` |
+| `UnicodeEncodeError` / SDF 1.7 | 请使用当前仓库最新版（URDF 已去中文注释，`yaofang` 已改为 SDF 1.6）并重新 `docker build` |
 

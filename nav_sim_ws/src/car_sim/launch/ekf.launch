@@ -1,0 +1,12 @@
+<launch>
+  <!-- Gazebo IMU 帧为 imu_link，实车为 IMU_link；EKF 与 AMCL 按实车命名对齐。 -->
+  <node pkg="tf" type="static_transform_publisher" name="imu_link_alias"
+        args="0 0 0 0 0 0 imu_link IMU_link 100" />
+
+  <!-- 融合 /odom + /imu_data；world_frame=odom。
+       仿真由 Gazebo 发布 odom→base_footprint TF，EKF 仅输出 /odometry/filtered（publish_tf=false）。 -->
+  <node name="ekf_se" pkg="robot_localization" type="ekf_localization_node" clear_params="true" output="screen">
+    <rosparam command="load" file="$(find car_sim)/param/ekf_params.yaml"/>
+    <param name="publish_tf" value="false"/>
+  </node>
+</launch>

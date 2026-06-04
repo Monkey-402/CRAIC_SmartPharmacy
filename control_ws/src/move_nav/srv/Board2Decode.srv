@@ -1,0 +1,4 @@
+string image_path
+---
+int32 wait_seconds
+string speech_text

@@ -1,0 +1,17 @@
+<launch>
+  <!-- 实机 AMCL 导航（不启 EKF）：AMCL / move_base 直接用底盘 /odom。
+       须与底盘 pub_odom_tf:=true 联用，例如：
+         roslaunch eprobot_chassis_bringup chassis.launch pub_odom_tf:=true
+         roslaunch car_sim nav_real_amcl_no_ekf.launch -->
+
+  <arg name="use_sim_time" default="false"/>
+  <arg name="map" default="map_sim.yaml"/>
+  <arg name="no_rviz" default="false"/>
+
+  <include file="$(find car_sim)/launch/nav_real_amcl.launch">
+    <arg name="use_sim_time" value="$(arg use_sim_time)"/>
+    <arg name="map" value="$(arg map)"/>
+    <arg name="no_rviz" value="$(arg no_rviz)"/>
+    <arg name="use_ekf" value="false"/>
+  </include>
+</launch>

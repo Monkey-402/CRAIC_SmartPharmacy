@@ -1,6 +1,6 @@
 # control_ws 说明（智慧社区示例工程）
 
-这个工作空间主要用于智慧社区比赛任务，包含导航控制、行人识别与车牌识别等模块。  
+这个工作空间主要用于智慧社区比赛任务，包含导航控制与任务分发模块。  
 当前约定如下：
 
 - `src/move_nav/src/control_node.cpp`：当前重构后的**抽象控制节点**（推荐作为二次开发入口）。
@@ -12,17 +12,13 @@
 
 - `src/move_nav/`
   - 导航控制包
-  - `launch/control.launch`：集成启动入口（控制节点 + 视觉服务节点）
-  - `src/control_node.cpp`：当前抽象版主控（不再绑定具体视觉算法）
-  - `src/smartcommunity_control_node.cpp`：原始比赛版本控制节点备份
-- `src/yolo_onnx_ros/`
-  - 人物/目标检测服务示例（YOLO ONNX）
-  - `srv/ObjectDetection.srv`：检测服务接口定义
-  - `scripts/yolo_onnx_service_node.py`：服务端脚本示例
-- `src/license_plate_ocr/`
-  - 车牌 OCR 服务示例
-  - `srv/LicensePlateOCR.srv`：OCR 服务接口定义
-  - `scripts/license_plate_server.py`：服务端脚本示例
+  - `launch/control.launch`：控制节点启动入口
+  - `launch/judgement_tcp_sender.launch`：裁判软件 TCP 上报
+  - `launch/car_tcp_bridge.launch`：双车 TCP 通信桥接
+  - `scripts/judgement_tcp_sender.py`：订阅 `JudgementReport`，经 TCP 发送 JSON 至裁判软件
+  - `scripts/car_tcp_bridge.py`：ROS `Int32` 与对端整数双向 TCP 桥接
+  - `msg/JudgementReport.msg`：裁判上报 ROS 消息定义
+  - `src/control_node.cpp`：当前抽象版主控（视觉能力通过话题接口接入）
 - `world/`
   - 比赛相关地图/世界文件资源
 
@@ -60,30 +56,222 @@ catkin_make
 source devel/setup.bash
 ```
 
-### 2) 启动示例（比赛风格）
+### 2) 启动控制节点
 
 ```bash
 roslaunch move_nav control.launch
 ```
 
-> 注：`control.launch` 里仍保留了比赛时期的 YOLO/OCR 服务节点启动方式，主要用于示例参考。  
-> 当前 `control_node.cpp` 已不再强依赖这些具体服务，推荐按你的项目需求替换为自定义处理节点。
+### Melodic 视觉依赖（Python 2）
+
+`control.launch` 中的二维码 / OCR 节点面向 **ROS Melodic（Python 2.7）**，请勿使用 `apt install python3-rospkg`（会与系统 `python-rospkg` 冲突）。
+
+小车或开发机执行一次：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  tesseract-ocr tesseract-ocr-chi-sim \
+  libzbar0 python-opencv python-pip
+sudo pip2 install 'pytesseract==0.2.9' 'pyzbar==0.1.8'
+```
+
+### 测试图像（模拟摄像头，与 control 分开启动）
+
+默认主控订阅官方 **`/camera/rgb/image_raw`**（与实车 `uvc_camera`、仿真 Gazebo 一致）。离线测识别时开**两个终端**：
+
+**终端 1**（主控 + 视觉，常驻）：
+
+```bash
+source devel/setup.bash
+roslaunch move_nav control.launch \
+  image_topic:=/yaofang_test/image_raw \
+  mock_navigation:=true max_rounds:=1
+```
+
+**终端 2**（测试图发布，可随时 Ctrl+C 重启换图）：
+
+```bash
+source devel/setup.bash
+roslaunch move_nav test_image_publisher.launch
+# 换图示例：
+# roslaunch move_nav test_image_publisher.launch image_path:=/path/to/other.png
+```
+
+实车（只用真相机，不启终端 2）：
+
+```bash
+roslaunch move_nav control.launch
+```
+
+---
+
+## 裁判软件 TCP 上报（judgement_tcp_sender）
+
+用于 CRAIC 智慧药房赛项：订阅 ROS 消息，按规则以 **1–2 Hz** 通过 **TCP/IP** 向裁判软件发送 JSON。  
+规则详见仓库根目录 `judgement.md`。
+
+主控在 **home / standby（起点预备）** 时不发布 `/judgement/report`；**任务中**（`STATION_ON_MISSION`）按 `judgement_report_rate`（默认 **1.5 Hz**）持续发布。`judgement_tcp_sender` 仅在收到新鲜上报时向裁判 TCP 发 JSON；待命时 `connect_retry` 可建连但不发旧数据，**不会因上报超时而反复断连**。
+
+### 消息定义
+
+话题默认：`/judgement/report`（`move_nav/JudgementReport`）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 小车编号，`"1"` 或 `"2"` |
+| `speed` | float64 | 速度（m/s） |
+| `odom` | float64[] | 地图坐标 `[x, y]`（m） |
+| `task` | string | 当前任务，如 `"A"`、`"1"`、`"R"` |
+| `CV1` | string | 识别板二结果，如 `"WAIT-8"` |
+| `CV2` | string | 二维码结果，如 `"AB-1"` |
+
+发送 JSON 示例：
+
+```json
+{"id":"1","speed":0.2,"odom":[2.2,1.0],"task":"A","CV1":"WAIT-8","CV2":"AB-1"}
+```
+
+### 启动
+
+赛前将 `server_ip`、`server_port` 改为现场公布的裁判软件地址：
+
+```bash
+roslaunch move_nav judgement_tcp_sender.launch \
+  server_ip:=192.168.1.102 \
+  server_port:=8888
+```
+
+### 参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `server_ip` | `192.168.1.100` | 裁判软件 IP |
+| `server_port` | `8888` | 裁判软件端口 |
+| `connect_retry_interval` | `2.0` | home/standby 无上报时仍周期性尝试 TCP 连接（秒） |
+| `send_rate` | `1.5` | 发送频率（Hz），规则要求 1–2 |
+| `input_topic` | `/judgement/report` | 订阅话题 |
+
+### 测试发布
+
+```bash
+rostopic pub /judgement/report move_nav/JudgementReport \
+  "id: '1'
+speed: 0.2
+odom: [2.2, 1.0]
+task: 'A'
+CV1: 'WAIT-8'
+CV2: 'AB-1'"
+```
+
+### 注意
+
+- 小车与裁判软件需在同一局域网；防火墙需放行对应 TCP 端口。
+- 节点缓存最新一条消息并按固定频率发送；断线会自动重连。
+- 其他节点只需持续发布 `JudgementReport`，无需自行处理 TCP。
+
+---
+
+## 双车协调（home / standby + CarLink）
+
+识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调要点：
+
+- **2 号车首次出工**：在 standby 等待，直到收到对端 **REACHED_ABC** 后前往 home。
+- **`ROUND_DONE` 时机**：本车 **到达 standby** 后发送（携带本轮 `delivery_slot`）；送样段仍可边播报边回 standby。
+- **home 侧出工**：收到对端 `ROUND_DONE`（对端已到 standby）后再从 home 出发开始下一轮。
+- **standby 侧回 home**：收到对端 **REACHED_ABC** 或 **ROUND_DONE**（对端已到 standby）时，从 standby 前往 home。
+- 板一在 **`board1_scan`** 航点扫码；多格有码默认选 **样本最多**，双车累计 **第 4 轮**（`min_samples_team_round`）选 **样本最少** 以省时。
+
+| 小车 | IP | 初始站位 | TCP |
+|------|-----|----------|-----|
+| 1 号车 | `192.168.124.3` | `home` | server :9000 |
+| 2 号车 | `192.168.124.9` | `standby` | client → 1 号车 |
+
+### 一键启动（参数均在 `config/*.yaml`，launch 无业务参数）
+
+| 场景 | 1 号车 | 2 号车 | 配置文件 |
+|------|--------|--------|----------|
+| 双机仿真 104/105 | `sim_car1.launch` | `sim_car2.launch` | `config/sim_car1.yaml`, `sim_car2.yaml` |
+| 赛场实车 124.3/124.9 | `real_car1.launch` | `real_car2.launch` | `config/real_car1.yaml`, `real_car2.yaml` |
+
+```bash
+# 仿真：104 先起，105 后起
+roslaunch move_nav sim_car1.launch
+roslaunch move_nav sim_car2.launch
+
+# 实车（含裁判 TCP）；导航另开终端用 nav_real_amcl_car1 / car2（AMCL 初值 home / standby）
+roslaunch move_nav real_car1.launch
+roslaunch move_nav real_car2.launch
+```
+
+改 standby、peer_ip、裁判地址等请只编辑对应 **yaml**；standby 坐标变更时须同步改 `nav_real_amcl_car2.launch` 的 AMCL 初值。
+
+**参数优先级（避免踩坑）**
+
+| 入口 | 业务参数（双车/TCP/standby） | 视觉/调试（mock、image_topic 等） |
+|------|------------------------------|-----------------------------------|
+| `sim_car*` / `real_car*` | 以 profile **yaml** 为准 | `control_profile` 内 node param；可用 launch 透传覆盖，如 `mock_navigation:=true` |
+| `control.launch`（单车） | yaml + `dual_car_mode` launch 默认 **false** 覆盖 yaml 里的 true | launch node param 覆盖 yaml 同名键 |
+
+主控节点 **不要使用** `clear_params="true"`，否则会清空 yaml 已加载的 `car_id`、`standby_*` 等。
+
+双车模式下，**车际 TCP** 由 `car_tcp_bridge` 启动即监听/重连（不依赖 CarLink 先发）；到 **home/standby** 后再等车际 + 裁判 TCP 就绪并开赛倒计时。**home** 侧需等对端 `ROUND_DONE`（对端已到 standby）再开工（1 号车首轮除外）。
+
+### 开赛倒计时（`enable_prestart_countdown`）
+
+实车/仿真 profile 默认开启（`enable_prestart_countdown: true`）。**无 4 分钟限时**，主控按 `max_rounds` 或手动停止结束。
+
+1. 到达初始站位（home / standby）后，等待 **车际 TCP** + **裁判 TCP**（`/judgement/peer_connected`）。
+2. **1 号车** 终端打印 **5→1 秒** 倒计时，结束时广播 `CarLink` **`MATCH_START`(6)**。
+3. **2 号车** 收到 `MATCH_START` 后与 1 号车同步开始任务循环。
+
+可调参数：`prestart_countdown_sec`（默认 5）、`require_judgement_tcp`（实车 true）。关闭倒计时：`enable_prestart_countdown: false`。
+
+### CarLink 话题与 TCP JSON
+
+| 话题 | 类型 |
+|------|------|
+| `/car_link/send` | `move_nav/CarLink` |
+| `/car_link/recv` | `move_nav/CarLink` |
+
+线格式（一行一条 JSON）：`{"v":1,"type":1,"from_id":"1","seq":10,"station":3,"delivery_slot":3}`
+
+| type | 含义 |
+|------|------|
+| 0 `HEARTBEAT` | 周期站位 |
+| 1 `SCAN_OK` | （已弃用协调）原板一扫码通知 |
+| 5 `REACHED_ABC` | 前车到达 A/B/C 任一取样点，对端 standby→home |
+| 2 `ROUND_DONE` | 本车到达 standby；对端 home 可开始下一轮 |
+| 6 `MATCH_START` | 1 号车开赛倒计时结束，对端同步开始任务 |
+
+### 预备点
+
+`standby_x/y/yaw` 在 `config/sim_car*.yaml` / `config/real_car*.yaml` 中配置。
+
+### 板一 slot 选择
+
+**不要求四格全扫到**，在 `board1_scan` 抓拍识别。多格有码时默认由 `qr_parser.py` 选 **A/B/C 样本数最多**；双车累计第 N 轮（默认 N=4）改为选 **样本数最少**。相同时按 slot 号打破平局。
 
 ---
 
 ## 二次开发建议
 
-- 如果你要保留比赛全流程：可直接参考 `smartcommunity_control_node.cpp`。
-- 如果你要做通用框架：以 `control_node.cpp` 为主，视觉能力通过独立节点接入。
+- 以 `control_node.cpp` 为主，视觉能力通过独立节点接入 `smartcommunity/task_request` / `task_result`。
 - 建议后续把 `task_request/task_result` 从 `std_msgs/String` 升级为自定义消息（字段更清晰、可扩展）。
+
+---
+
+## 任务点（`control_node_yaofang_service_template.cpp`）
+
+`GOAL_LIST` 每项格式：`{x, y, yaw, "name"}`。终点航向容差由导航栈 TEB yaml（`yaw_goal_tolerance`）统一配置。
 
 ---
 
 ## 备注
 
-本仓库中与模型文件、参数阈值、路径相关的配置（如 `models/best.onnx`、保存目录）请按本机环境自行调整。  
 在正式比赛或部署前，建议统一检查：
 
-- 模型路径与权限
-- 摄像头话题名（如 `/camera/image_raw`）
+- 抓图保存目录与权限：默认 **`control_ws/src/snapshots/`**（QR 裁剪 `*_slot1..4.jpg`、OCR `*_ocr_roi.jpg` / `*_ocr_bin.jpg` 同目录）
+- 摄像头话题名：默认 **`/camera/rgb/image_raw`**（官方）；离线测试图 **`/yaofang_test/image_raw`**
+- 实车 IP：1 号车 **`192.168.124.3`**，2 号车 **`192.168.124.9`**
 - 地图/world 与导航参数匹配

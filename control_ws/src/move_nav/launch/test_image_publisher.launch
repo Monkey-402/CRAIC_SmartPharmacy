@@ -1,0 +1,19 @@
+<launch>
+  <!-- 独立启动，勿写进 control.launch。换图：Ctrl+C 本 launch 后用新 image_path 再启。 -->
+  <!-- 主控需另开终端：roslaunch move_nav control.launch image_topic:=/yaofang_test/image_raw -->
+  <!-- 不与实车/仿真相机 /camera/rgb/image_raw 冲突 -->
+  <arg name="image_topic" default="/yaofang_test/image_raw" />
+  <arg name="image_path" default="$(find move_nav)/test_assets/test1.png" />
+  <arg name="rate" default="10.0" />
+  <arg name="frame_id" default="yaofang_test_camera" />
+
+  <node pkg="move_nav"
+        type="test_image_publisher.py"
+        name="test_image_publisher"
+        output="screen">
+    <param name="image_path" value="$(arg image_path)" />
+    <param name="image_topic" value="$(arg image_topic)" />
+    <param name="rate" value="$(arg rate)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+  </node>
+</launch>

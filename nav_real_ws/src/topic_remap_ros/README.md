@@ -1,26 +1,24 @@
 # topic_remap_ros
 
-在**同一 ROS master**下，把实车 `robot_ws` 发布的话题名转发为 `craic` 导航/控制节点常用名。
+可选话题转发（**默认全部关闭**）。`control_ws` 与仿真 Gazebo 已直接使用官方相机名 **`/camera/rgb/image_raw`**，实车 `chassis.launch` 亦同，一般**无需**再启本包。
 
-## 默认映射
+## 历史映射（仅 legacy）
 
-| 输入（实车常见） | 输出（craic 常见） |
-|------------------|-------------------|
-| `/camera/rgb/image_raw` | `/camera/image_raw` |
-| `/scan_filtered` | `/scan`（`frame_id` 可改为 `laser_link` 以匹配 `car_sim` 代价地图） |
+| 输入 | 输出 | 启用参数 |
+|------|------|----------|
+| `/camera/rgb/image_raw` | `/camera/image_raw` | `relay_rgb:=true` |
+| `/scan_filtered` | `/scan`（并改 frame_id） | `relay_scan:=true` |
 
-## 使用
+## 单独启动
 
 ```bash
+# 默认不转发任何话题（节点会提示后退出）
 roslaunch topic_remap_ros topic_remap_default.launch
+
+# 若仍有旧节点订 /camera/image_raw：
+roslaunch topic_remap_ros topic_remap_default.launch relay_rgb:=true
 ```
 
-参数可在 launch 里改，或加载同名私有参数覆盖 `rgb_in` / `scan_in` / `scan_frame_id` 等。
+## 与 nav launch 的关系
 
-## 与 `nav_real` 联调顺序建议
-
-1. 实车启动底盘与传感器（含 `scan`、`odom`、`TF`）
-2. `roslaunch topic_remap_ros topic_remap_default.launch`
-3. `roslaunch car_sim nav_real.launch`
-
-若实车已直接发布 `/scan` 且 `frame_id` 已是 `laser_link`，可将 `relay_scan` 设为 `false`。
+`nav_real_*_with_remap.launch` 仍 include 本 launch，但默认 `relay_rgb=false`、`relay_scan=false`，与 `nav_real_*.launch` 行为等价。

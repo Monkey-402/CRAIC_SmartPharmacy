@@ -9,7 +9,7 @@
 
   <link name="base_footprint"/>
 
-  <!-- 简化车身: 0.35 x 0.20 x 0.10 m -->
+  <!-- body: 0.35 x 0.20 x 0.10 m -->
   <link name="base_link">
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -37,7 +37,7 @@
     <origin xyz="0 0 0.05" rpy="0 0 0"/>
   </joint>
 
-  <!-- 传感器位置保持与原模型一致 -->
+  <!-- sensor mounts aligned with original model -->
   <link name="laser_link">
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -99,7 +99,7 @@
   </joint>
 
   <gazebo>
-    <plugin name="mecanum_controller" filename="libgazebo_ros_planar_move.so">
+    <plugin name="ackermann_controller" filename="libgazebo_ros_planar_move.so">
       <commandTopic>cmd_vel</commandTopic>
       <odometryTopic>odom</odometryTopic>
       <odometryFrame>odom</odometryFrame>
@@ -107,7 +107,7 @@
       <wheelSeparationX>0.20</wheelSeparationX>
       <wheelSeparationY>0.20</wheelSeparationY>
       <wheelRadius>0.05</wheelRadius>
-      <motionType>mecanum</motionType>
+      <motionType>ackermann</motionType>
       <odometryRate>30</odometryRate>
       <cmdTimeout>0.5</cmdTimeout>
       <wheelTorque>10.0</wheelTorque>
@@ -172,8 +172,8 @@
         <alwaysOn>true</alwaysOn>
         <updateRate>0.0</updateRate>
         <cameraName>camera</cameraName>
-        <imageTopicName>image_raw</imageTopicName>
-        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <imageTopicName>rgb/image_raw</imageTopicName>
+        <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
         <frameName>camera_link</frameName>
       </plugin>
     </sensor>

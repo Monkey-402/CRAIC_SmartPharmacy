@@ -1,0 +1,58 @@
+TebLocalPlannerROS:
+
+  # CRAIC：保守速度一半版（相对 base_local_planner_params_TEB.yaml）
+  # teb_config:=$(find car_sim)/param/base_local_planner_params_TEB_conservative_half.yaml
+
+  odom_topic: odom
+  map_frame: map
+
+  max_vel_x: 0.5
+  max_vel_x_backwards: 0.2
+  max_vel_y: 0.0
+  max_vel_theta: 0.5
+  acc_lim_x: 0.3
+  acc_lim_y: 0.0
+  acc_lim_theta: 0.25
+  min_turning_radius: 0.52
+  wheelbase: 0.17
+  cmd_angle_instead_rotvel: false
+
+  teb_autosize: true
+  dt_ref: 0.3
+  dt_hysteresis: 0.1
+  min_samples: 3
+  global_plan_overwrite_orientation: true
+  global_plan_viapoint_sep: 0.25
+  max_global_plan_lookahead_dist: 2.0
+  global_plan_prune_distance: 0.6
+  allow_init_with_backwards_motion: true
+
+  xy_goal_tolerance: 0.12
+  yaw_goal_tolerance: 0.2
+  free_goal_vel: false
+
+  footprint_model:
+    type: "polygon"
+    vertices: [[-0.145, -0.105], [0.145, -0.105], [0.145, 0.105], [-0.145, 0.105]]
+
+  min_obstacle_dist: 0.04
+  inflation_dist: 0.05
+  include_costmap_obstacles: true
+  costmap_obstacles_behind_robot_dist: 1.0
+  obstacle_poses_affected: 15
+
+  no_inner_iterations: 5
+  no_outer_iterations: 4
+  weight_optimaltime: 1.0
+  weight_max_vel_x: 1.0
+  weight_max_vel_theta: 1.0
+  weight_acc_lim_x: 1.0
+  weight_acc_lim_theta: 1.0
+  weight_kinematics_nh: 1000.0
+  weight_kinematics_forward_drive: 80.0
+  weight_kinematics_turning_radius: 18.0
+  weight_obstacle: 50.0
+  weight_viapoint: 20.0
+  weight_shortest_path: 2.0
+
+  enable_homotopy_class_planning: false

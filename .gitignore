@@ -5,3 +5,13 @@ control_ws/build/
 control_ws/devel/
 nav_real_ws/build/
 nav_real_ws/devel/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Runtime snapshots and QR/OCR debug crops
+control_ws/snapshots/
+!control_ws/snapshots/.gitkeep
+control_ws/src/snapshots/
+!control_ws/src/snapshots/.gitkeep

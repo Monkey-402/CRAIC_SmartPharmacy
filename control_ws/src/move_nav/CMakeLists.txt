@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(move_nav)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -11,17 +11,17 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   actionlib_msgs
   geometry_msgs
+  nav_msgs
+  tf2_ros
   move_base_msgs
   roscpp
   std_msgs
   cv_bridge
   sensor_msgs
   message_generation
-  yolo_onnx_ros
-  license_plate_ocr
 )
 
-find_package(OpenCV 4 REQUIRED)   # 或 3 也行
+find_package(OpenCV REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -59,16 +59,16 @@ find_package(OpenCV 4 REQUIRED)   # 或 3 也行
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  SampleOrder.msg
-  TaskRequest.msg
-  TaskResult.msg
+  JudgementReport.msg
+  CarLink.msg
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   ObjectDetection.srv
-# )
+add_service_files(
+  FILES
+  Board1Decode.srv
+  Board2Decode.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -150,7 +150,7 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/move_nav_node.cpp)
 # add_executable(move2point src/move2point.cpp)
 add_executable(control_node src/control_node.cpp)
-add_executable(yaofang_control_msg_node src/control_node_yaofang_msg_template.cpp)
+add_executable(yaofang_control_service_node src/control_node_yaofang_service_template.cpp)
 # add_executable(takePhoto src/takePhoto.cpp)
 
 ## Rename C++ executable without prefix
@@ -164,7 +164,7 @@ add_executable(yaofang_control_msg_node src/control_node_yaofang_msg_template.cp
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(move2point ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(yaofang_control_msg_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(yaofang_control_service_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(takePhoto ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Specify libraries to link a library or executable target against
@@ -174,7 +174,7 @@ add_dependencies(yaofang_control_msg_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${
 target_link_libraries(control_node 
   ${catkin_LIBRARIES}
 )
-target_link_libraries(yaofang_control_msg_node
+target_link_libraries(yaofang_control_service_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
@@ -188,10 +188,20 @@ target_link_libraries(yaofang_control_msg_node
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+catkin_install_python(PROGRAMS
+  scripts/judgement_tcp_sender.py
+  scripts/car_tcp_bridge.py
+  scripts/test_image_publisher.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY test_assets
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
+
+install(DIRECTORY config/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
@@ -220,6 +230,9 @@ target_link_libraries(yaofang_control_msg_node
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
+install(DIRECTORY audio/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/audio
+)
 
 #############
 ## Testing ##
