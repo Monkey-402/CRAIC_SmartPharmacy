@@ -2,13 +2,6 @@
 
 只列**命令**；说明、参数表、依赖见 [`README.md`](README.md) 与各子目录文档。
 
-```bash
-# 编译（一次性）
-cd ~/craic/nav_real_ws && catkin_make
-cd ~/craic/control_ws && catkin_make
-# 新终端：source <ws>/devel/setup.bash
-```
-
 ---
 
 ## 实车
@@ -25,6 +18,14 @@ ssh EPRobot@192.168.124.9   # 2 号
 cd ~/craic
 ./sync_to_robot.sh                         # 1 号
 ./sync_to_robot.sh EPRobot@192.168.124.9  # 2 号
+```
+
+同步后在小车 SSH 里编译（有改动时执行）：
+
+```bash
+cd ~/craic/nav_real_ws && catkin_make && source devel/setup.bash
+cd ~/craic/control_ws && catkin_make && source devel/setup.bash
+cd ~/robot_ws && catkin_make && source devel/setup.bash
 ```
 
 **终端 A～D** 在对应小车的 SSH 里执行。
