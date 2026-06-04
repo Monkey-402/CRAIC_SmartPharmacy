@@ -1,18 +1,14 @@
 <launch>
-  <!-- 裁判软件 IP/端口，赛前按现场公布值修改 -->
-  <arg name="server_ip" default="192.168.1.100" />
-  <arg name="server_port" default="8888" />
-  <!-- 规则要求 1-2 Hz -->
-  <arg name="send_rate" default="1.5" />
-  <arg name="input_topic" default="/judgement/report" />
+  <!-- 单独启动裁判 TCP；car_id: 1|2|sim（配置见 config/judgement_*.yaml） -->
+  <arg name="car_id" default="1" doc="1|2|sim"/>
+  <arg name="load_judgement_config" default="true" doc="经 control.launch 拉起时设为 false"/>
+  <arg if="$(eval arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/judgement_sim.yaml"/>
+  <arg if="$(eval arg('car_id') == '2')" name="judgement_config" default="$(find move_nav)/config/real_car2.yaml"/>
+  <arg unless="$(eval arg('car_id') == '2' or arg('car_id') == 'sim')" name="judgement_config" default="$(find move_nav)/config/real_car1.yaml"/>
+  <rosparam if="$(arg load_judgement_config)" file="$(arg judgement_config)" command="load" />
 
   <node name="judgement_tcp_sender"
         pkg="move_nav"
         type="judgement_tcp_sender.py"
-        output="screen">
-    <param name="server_ip" value="$(arg server_ip)" />
-    <param name="server_port" value="$(arg server_port)" />
-    <param name="send_rate" value="$(arg send_rate)" />
-    <param name="input_topic" value="$(arg input_topic)" />
-  </node>
+        output="screen" />
 </launch>

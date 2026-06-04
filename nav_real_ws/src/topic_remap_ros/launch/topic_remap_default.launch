@@ -1,7 +1,7 @@
 <launch>
-  <!-- 默认：对齐 robot_ws 常见话题 -> craic control/nav 期望名称 -->
+  <!-- 相机话题已与官方 /control_ws 对齐，默认不再转发；仅 legacy 兼容时可设 relay_rgb:=true -->
   <node pkg="topic_remap_ros" type="topic_remap_node.py" name="topic_remap_node" output="screen">
-    <param name="relay_rgb" value="true"/>
+    <param name="relay_rgb" value="false"/>
     <param name="rgb_in" value="/camera/rgb/image_raw"/>
     <param name="rgb_out" value="/camera/image_raw"/>
 

@@ -27,7 +27,7 @@ def _sample_flags(text):
     return has_a, has_b, has_c, sample_count
 
 
-def parse_qr(qr_list):
+def parse_qr(qr_list, prefer_fewest=False):
     candidates = []
 
     for qr in qr_list:
@@ -51,14 +51,23 @@ def parse_qr(qr_list):
     if not candidates:
         return False, False, False, 0, 0
 
-    # 只返回一个二维码：样本数最少优先；样本数相同时选择位置号更小的。
-    selected = min(
-        candidates,
-        key=lambda candidate: (
-            candidate["sample_count"],
-            candidate["delivery_slot"],
-        ),
-    )
+    # 多格有码：默认选样本数最多；prefer_fewest 时选样本数最少（双车第 4 轮省时间）。
+    if prefer_fewest:
+        selected = min(
+            candidates,
+            key=lambda candidate: (
+                candidate["sample_count"],
+                candidate["delivery_slot"],
+            ),
+        )
+    else:
+        selected = max(
+            candidates,
+            key=lambda candidate: (
+                candidate["sample_count"],
+                -candidate["delivery_slot"],
+            ),
+        )
     return (
         selected["has_a"],
         selected["has_b"],

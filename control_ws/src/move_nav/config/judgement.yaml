@@ -1,0 +1,29 @@
+# CRAIC 裁判上报（通用模板；实车请用 real_car1/2.launch 或 control.launch car_id:=1/2）
+
+yaofang_control_service_node:
+  # 小车编号 "1"（.3）或 "2"（.9）；推荐 launch：car_id:=1 或 car_id:=2
+  car_id: "1"
+  # 里程计话题（twist 取速度；pose 在 use_tf_pose=false 时使用）
+  odom_topic: "/odom"
+  # 为 true 时用 TF map→base_link 作为 odom 坐标（与 GOAL_LIST 同 map 系）
+  use_tf_pose: true
+  map_frame: "map"
+  base_frame: "base_link"
+  # 是否持续发布 JudgementReport
+  enable_judgement_report: true
+  # 发布话题与频率（规则要求 1–2 Hz）
+  judgement_report_topic: "/judgement/report"
+  judgement_report_rate: 1.5
+  # 视觉结果未就绪时的默认 CV 字段
+  default_cv1: "WAIT-0"
+  default_cv2: ""
+  # 非 A/B/C/1/2/3/4 停车点时的 task
+  default_task: "R"
+
+# judgement_tcp_sender 节点参数（由 control.launch 按需拉起）
+judgement_tcp_sender:
+  server_ip: "192.168.124.29"
+  server_port: 8888
+  send_rate: 1.5
+  connect_retry_interval: 2.0
+  input_topic: "/judgement/report"

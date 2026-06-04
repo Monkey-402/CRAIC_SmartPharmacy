@@ -9,5 +9,7 @@
   <exec_depend>roslaunch</exec_depend>
   <!-- 实车编译时需存在 eprobot_start（及 ls01d / lslidar_driver 等） -->
   <exec_depend>eprobot_start</exec_depend>
+  <!-- camera_driver:=astra（默认） -->
+  <exec_depend>astra_camera</exec_depend>
   <export/>
 </package>

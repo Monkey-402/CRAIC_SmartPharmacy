@@ -1,0 +1,15 @@
+# 对齐 robot_ws_official/robot_navigation/param/EPRobot/move_base_params.yaml
+# 与 nav_real_ws 完全一致
+
+controller_frequency: 8.0
+controller_patience: 10.0
+
+planner_frequency: 2.0
+planner_patience: 5.0
+
+conservative_reset_dist: 0.2
+
+oscillation_timeout: 10.0
+oscillation_distance: 0.2
+
+clearing_rotation_allowed: false

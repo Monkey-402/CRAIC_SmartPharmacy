@@ -1,14 +1,17 @@
+# 对齐 robot_ws_official/robot_navigation/param/EPRobot/global_costmap_params.yaml
+# 与 nav_real_ws 完全一致
+
 global_costmap:
-  global_frame: map #地图坐标系
-  robot_base_frame: base_link #机器人坐标系
-  # 以此实现坐标变换
+  global_frame: map
+  robot_base_frame: base_footprint
+  update_frequency: 5.0
+  publish_frequency: 5.0
+  static_map: true
 
-  update_frequency: 5.0       # 地图更新频率
-  publish_frequency: 2.0      # 发布频率
-  resolution: 0.05             # 分辨率
-  width: 3.0                  # 局部地图尺
-  height: 3.0
-  transform_tolerance: 0.5 #等待坐标变换发布信息的超时时间
+  transform_tolerance: 0.8
+  cost_scaling_factor: 18.0
 
-  static_map: true # 是否使用一个地图或者地图服务器来初始化全局代价地图，如果不使用静态地图，这个参数为false.
-
+  plugins:
+    - {name: static_layer,            type: "costmap_2d::StaticLayer"}
+    - {name: obstacle_layer,          type: "costmap_2d::VoxelLayer"}
+    - {name: inflation_layer,         type: "costmap_2d::InflationLayer"}

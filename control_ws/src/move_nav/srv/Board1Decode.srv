@@ -1,7 +1,10 @@
 string image_path
+bool prefer_fewest_samples
 ---
 bool has_a
 bool has_b
 bool has_c
 int32 delivery_slot
 int32 sample_count
+# 空=成功；decode_failed=全图未扫到码；parse_failed=有码但无有效 A/B/C
+string error_message

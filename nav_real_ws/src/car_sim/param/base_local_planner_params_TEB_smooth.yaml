@@ -1,0 +1,73 @@
+TebLocalPlannerROS:
+
+  # =============================================================================
+  # CRAIC 调试：顺滑路径版（速度上限与默认 conservative 相同，优化弯口/贴线行为）
+  #
+  # 相对 base_local_planner_params_TEB.yaml 主要改动：
+  #   global_plan_viapoint_sep 0.8（减少弯口反复修角）
+  #   global_plan_overwrite_orientation false（朝向由 TEB 沿路径自然过渡）
+  #   weight_optimaltime 1.2 | weight_viapoint 32 | lookahead 3.5
+  #   weight_kinematics_forward_drive 55 | yaw_goal_tolerance 0.2
+  #   max_vel_theta 0.8（线速度不变，转弯更柔和）
+  #
+  # 启用：
+  #   roslaunch car_sim nav_real_amcl_car1.launch \
+  #     teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+  # =============================================================================
+
+  odom_topic: odom
+  map_frame: map
+
+  # ====== 运动学约束（与默认保守版速度相同）======
+  max_vel_x: 1.0
+  max_vel_x_backwards: 0.4
+  max_vel_y: 0.0
+  max_vel_theta: 0.8
+  acc_lim_x: 0.6
+  acc_lim_y: 0.0
+  acc_lim_theta: 0.4
+  min_turning_radius: 0.52
+  wheelbase: 0.17
+  cmd_angle_instead_rotvel: false
+
+  # ====== 轨迹生成（顺滑向）======
+  teb_autosize: true
+  dt_ref: 0.35
+  dt_hysteresis: 0.1
+  min_samples: 3
+  global_plan_overwrite_orientation: false
+  global_plan_viapoint_sep: 0.8
+  max_global_plan_lookahead_dist: 3.5
+  global_plan_prune_distance: 0.6
+  allow_init_with_backwards_motion: true
+
+  # ====== 目标容差（略放航向，减少到点原地反复拧）======
+  xy_goal_tolerance: 0.12
+  yaw_goal_tolerance: 0.2
+  free_goal_vel: false
+
+  footprint_model:
+    type: "polygon"
+    vertices: [[-0.145, -0.105], [0.145, -0.105], [0.145, 0.105], [-0.145, 0.105]]
+
+  min_obstacle_dist: 0.04
+  inflation_dist: 0.05
+  include_costmap_obstacles: true
+  costmap_obstacles_behind_robot_dist: 1.0
+  obstacle_poses_affected: 15
+
+  no_inner_iterations: 5
+  no_outer_iterations: 4
+  weight_optimaltime: 1.2
+  weight_max_vel_x: 1.0
+  weight_max_vel_theta: 1.0
+  weight_acc_lim_x: 1.0
+  weight_acc_lim_theta: 1.0
+  weight_kinematics_nh: 1000.0
+  weight_kinematics_forward_drive: 55.0
+  weight_kinematics_turning_radius: 18.0
+  weight_obstacle: 50.0
+  weight_viapoint: 32.0
+  weight_shortest_path: 1.5
+
+  enable_homotopy_class_planning: false

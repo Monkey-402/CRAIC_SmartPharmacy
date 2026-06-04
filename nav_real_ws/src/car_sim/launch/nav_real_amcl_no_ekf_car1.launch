@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find car_sim)/launch/nav_real_amcl_car1.launch" pass_all_args="true">
+    <arg name="use_ekf" value="false"/>
+  </include>
+</launch>

@@ -78,7 +78,7 @@ sudo pip2 install 'pytesseract==0.2.9' 'pyzbar==0.1.8'
 
 ### 测试图像（模拟摄像头，与 control 分开启动）
 
-默认主控订阅实车 **`/camera/image_raw`**。离线测识别时开**两个终端**：
+默认主控订阅官方 **`/camera/rgb/image_raw`**（与实车 `uvc_camera`、仿真 Gazebo 一致）。离线测识别时开**两个终端**：
 
 **终端 1**（主控 + 视觉，常驻）：
 
@@ -110,6 +110,8 @@ roslaunch move_nav control.launch
 
 用于 CRAIC 智慧药房赛项：订阅 ROS 消息，按规则以 **1–2 Hz** 通过 **TCP/IP** 向裁判软件发送 JSON。  
 规则详见仓库根目录 `judgement.md`。
+
+主控在 **home / standby（起点预备）** 时不发布 `/judgement/report`；**任务中**（`STATION_ON_MISSION`）按 `judgement_report_rate`（默认 **1.5 Hz**）持续发布。`judgement_tcp_sender` 仅在收到新鲜上报时向裁判 TCP 发 JSON；待命时 `connect_retry` 可建连但不发旧数据，**不会因上报超时而反复断连**。
 
 ### 消息定义
 
@@ -146,6 +148,7 @@ roslaunch move_nav judgement_tcp_sender.launch \
 |------|--------|------|
 | `server_ip` | `192.168.1.100` | 裁判软件 IP |
 | `server_port` | `8888` | 裁判软件端口 |
+| `connect_retry_interval` | `2.0` | home/standby 无上报时仍周期性尝试 TCP 连接（秒） |
 | `send_rate` | `1.5` | 发送频率（Hz），规则要求 1–2 |
 | `input_topic` | `/judgement/report` | 订阅话题 |
 
@@ -169,75 +172,85 @@ CV2: 'AB-1'"
 
 ---
 
-## 双车 TCP 通信（car_tcp_bridge）
+## 双车协调（home / standby + CarLink）
 
-用于两车协同：在 ROS 内订阅/发布整数，车与车之间经 **TCP** 传输，不依赖跨车 ROS 通信。
+识别过的二维码会从屏幕消失，**无需**双车同步占用表。协调要点：
 
-### 话题
+- **2 号车首次出工**：在 standby 等待，直到收到对端 **REACHED_ABC** 后前往 home。
+- **`ROUND_DONE` 时机**：本车 **到达 standby** 后发送（携带本轮 `delivery_slot`）；送样段仍可边播报边回 standby。
+- **home 侧出工**：收到对端 `ROUND_DONE`（对端已到 standby）后再从 home 出发开始下一轮。
+- **standby 侧回 home**：收到对端 **REACHED_ABC** 或 **ROUND_DONE**（对端已到 standby）时，从 standby 前往 home。
+- 板一在 **`board1_scan`** 航点扫码；多格有码默认选 **样本最多**，双车累计 **第 4 轮**（`min_samples_team_round`）选 **样本最少** 以省时。
 
-| 方向 | 默认话题 | 类型 | 说明 |
-|------|----------|------|------|
-| 发出 | `/car_link/send` | `std_msgs/Int32` | 本车要发给对端的数字 |
-| 接收 | `/car_link/recv` | `std_msgs/Int32` | 对端发来的数字 |
+| 小车 | IP | 初始站位 | TCP |
+|------|-----|----------|-----|
+| 1 号车 | `192.168.124.3` | `home` | server :9000 |
+| 2 号车 | `192.168.124.9` | `standby` | client → 1 号车 |
 
-TCP 协议：一行一个整数，如 `42\n`。连接建立后**双向**收发。
+### 一键启动（参数均在 `config/*.yaml`，launch 无业务参数）
 
-### 角色
-
-| 角色 | 行为 | 建议 |
-|------|------|------|
-| `server` | 监听端口，等对端连接 | 1 号车 |
-| `client` | 主动连接对端 IP | 2 号车 |
-
-### 启动
-
-**1 号车（server）：**
+| 场景 | 1 号车 | 2 号车 | 配置文件 |
+|------|--------|--------|----------|
+| 双机仿真 104/105 | `sim_car1.launch` | `sim_car2.launch` | `config/sim_car1.yaml`, `sim_car2.yaml` |
+| 赛场实车 124.3/124.9 | `real_car1.launch` | `real_car2.launch` | `config/real_car1.yaml`, `real_car2.yaml` |
 
 ```bash
-roslaunch move_nav car_tcp_bridge_car1.launch
-# 或
-roslaunch move_nav car_tcp_bridge.launch role:=server port:=9000
+# 仿真：104 先起，105 后起
+roslaunch move_nav sim_car1.launch
+roslaunch move_nav sim_car2.launch
+
+# 实车（含裁判 TCP）；导航另开终端用 nav_real_amcl_car1 / car2（AMCL 初值 home / standby）
+roslaunch move_nav real_car1.launch
+roslaunch move_nav real_car2.launch
 ```
 
-**2 号车（client，`peer_ip` 填 1 号车 IP）：**
+改 standby、peer_ip、裁判地址等请只编辑对应 **yaml**；standby 坐标变更时须同步改 `nav_real_amcl_car2.launch` 的 AMCL 初值。
 
-```bash
-roslaunch move_nav car_tcp_bridge_car2.launch
-# 或
-roslaunch move_nav car_tcp_bridge.launch role:=client peer_ip:=192.168.1.101 port:=9000
-```
+**参数优先级（避免踩坑）**
 
-### 参数
+| 入口 | 业务参数（双车/TCP/standby） | 视觉/调试（mock、image_topic 等） |
+|------|------------------------------|-----------------------------------|
+| `sim_car*` / `real_car*` | 以 profile **yaml** 为准 | `control_profile` 内 node param；可用 launch 透传覆盖，如 `mock_navigation:=true` |
+| `control.launch`（单车） | yaml + `dual_car_mode` launch 默认 **false** 覆盖 yaml 里的 true | launch node param 覆盖 yaml 同名键 |
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `role` | `client` | `server` 或 `client` |
-| `peer_ip` | `192.168.1.102` | client 模式下对端 IP |
-| `port` | `9000` | TCP 端口 |
-| `send_topic` | `/car_link/send` | 发送订阅话题 |
-| `recv_topic` | `/car_link/recv` | 接收发布话题 |
+主控节点 **不要使用** `clear_params="true"`，否则会清空 yaml 已加载的 `car_id`、`standby_*` 等。
 
-### 测试
+双车模式下，**车际 TCP** 由 `car_tcp_bridge` 启动即监听/重连（不依赖 CarLink 先发）；到 **home/standby** 后再等车际 + 裁判 TCP 就绪并开赛倒计时。**home** 侧需等对端 `ROUND_DONE`（对端已到 standby）再开工（1 号车首轮除外）。
 
-**A 车发送：**
+### 开赛倒计时（`enable_prestart_countdown`）
 
-```bash
-rostopic pub /car_link/send std_msgs/Int32 "data: 1"
-```
+实车/仿真 profile 默认开启（`enable_prestart_countdown: true`）。**无 4 分钟限时**，主控按 `max_rounds` 或手动停止结束。
 
-**B 车接收：**
+1. 到达初始站位（home / standby）后，等待 **车际 TCP** + **裁判 TCP**（`/judgement/peer_connected`）。
+2. **1 号车** 终端打印 **5→1 秒** 倒计时，结束时广播 `CarLink` **`MATCH_START`(6)**。
+3. **2 号车** 收到 `MATCH_START` 后与 1 号车同步开始任务循环。
 
-```bash
-rostopic echo /car_link/recv
-```
+可调参数：`prestart_countdown_sec`（默认 5）、`require_judgement_tcp`（实车 true）。关闭倒计时：`enable_prestart_countdown: false`。
 
-反向同理：B 发 `/car_link/send`，A 收 `/car_link/recv`。
+### CarLink 话题与 TCP JSON
 
-### 注意
+| 话题 | 类型 |
+|------|------|
+| `/car_link/send` | `move_nav/CarLink` |
+| `/car_link/recv` | `move_nav/CarLink` |
 
-- 两台设备需在同一网段；**server 端**需放行 TCP 端口（默认 9000）。
-- Windows 默认可能拦截 ping，但不影响 TCP；以 `nc -zv <对端IP> 9000` 验证连通性更可靠。
-- 断线后 client 会自动重连；server 断开后会重新等待连接。
+线格式（一行一条 JSON）：`{"v":1,"type":1,"from_id":"1","seq":10,"station":3,"delivery_slot":3}`
+
+| type | 含义 |
+|------|------|
+| 0 `HEARTBEAT` | 周期站位 |
+| 1 `SCAN_OK` | （已弃用协调）原板一扫码通知 |
+| 5 `REACHED_ABC` | 前车到达 A/B/C 任一取样点，对端 standby→home |
+| 2 `ROUND_DONE` | 本车到达 standby；对端 home 可开始下一轮 |
+| 6 `MATCH_START` | 1 号车开赛倒计时结束，对端同步开始任务 |
+
+### 预备点
+
+`standby_x/y/yaw` 在 `config/sim_car*.yaml` / `config/real_car*.yaml` 中配置。
+
+### 板一 slot 选择
+
+**不要求四格全扫到**，在 `board1_scan` 抓拍识别。多格有码时默认由 `qr_parser.py` 选 **A/B/C 样本数最多**；双车累计第 N 轮（默认 N=4）改为选 **样本数最少**。相同时按 slot 号打破平局。
 
 ---
 
@@ -248,10 +261,17 @@ rostopic echo /car_link/recv
 
 ---
 
+## 任务点（`control_node_yaofang_service_template.cpp`）
+
+`GOAL_LIST` 每项格式：`{x, y, yaw, "name"}`。终点航向容差由导航栈 TEB yaml（`yaw_goal_tolerance`）统一配置。
+
+---
+
 ## 备注
 
 在正式比赛或部署前，建议统一检查：
 
-- 抓图保存目录与权限：默认 `control_ws/snapshots/`（QR 裁剪 `*_slot1..4.jpg` 同目录）
-- 摄像头话题名：默认 `/camera/image_raw`；测试时 `/yaofang_test/image_raw`
+- 抓图保存目录与权限：默认 **`control_ws/src/snapshots/`**（QR 裁剪 `*_slot1..4.jpg`、OCR `*_ocr_roi.jpg` / `*_ocr_bin.jpg` 同目录）
+- 摄像头话题名：默认 **`/camera/rgb/image_raw`**（官方）；离线测试图 **`/yaofang_test/image_raw`**
+- 实车 IP：1 号车 **`192.168.124.3`**，2 号车 **`192.168.124.9`**
 - 地图/world 与导航参数匹配

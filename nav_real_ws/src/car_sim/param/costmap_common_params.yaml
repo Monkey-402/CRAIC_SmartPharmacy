@@ -1,26 +1,27 @@
-# 机器人外轮廓，按多边形顶点定义。规划器会在这些顶点周围保持安全距离，防止碰撞。
-# EPRobot V2 实测: 0.27m x 0.21m（比赛规则第1页）
-footprint: [[-0.135, -0.105], [-0.135, 0.105], [0.135, 0.105], [0.135, -0.105]]
+# 对齐 robot_ws_official/robot_navigation/param/EPRobot/costmap_common_params.yaml
+# craic 保留：激光 topic 经 launch remap；sensor_frame 为 base_laser_link
 
-# 传感器数据引入代价地图的最大距离（米）。超过此距离的障碍物被忽略。
-obstacle_range: 3.0
-# 传感器数据清除代价地图的最大距离（米）。超过此距离的已标记障碍物会被清除。
-raytrace_range: 3.5
+footprint: [[-0.14, -0.11], [0.14, -0.11], [0.14, 0.11], [-0.14, 0.11]]
 
-# 障碍物膨胀半径（米）。在障碍物周围扩展一圈代价区域，使规划路径离障碍物更远。
-# 值越大机器人离墙越远，越安全但可能无法通过窄通道。
-# 来源: teb调整-F1参数.txt
-inflation_radius: 0.06
-# 代价衰减系数。值越大代价随距离衰减越快，机器人更贴近障碍物外侧行走；
-# 值越小代价衰减越平缓，机器人倾向于远离障碍物。
-# 来源: teb调整-F1参数.txt
-cost_scaling_factor: 15.0
+transform_tolerance: 0.2
+map_type: map
 
-transform_tolerance: 0.2  # 允许 0.2s 的外推
+obstacle_layer:
+  enabled: true
+  obstacle_range: 6.5
+  raytrace_range: 6.0
+  inflation_radius: 0.15
+  track_unknown_space: true
+  combination_method: 1
 
-#地图类型
-map_type: costmap
-#导航包所需要的传感器
-observation_sources: scan
-#对传感器的坐标系和数据进行配置。这个也会用于代价地图添加和清除障碍物。例如，你可以用激光雷达传感器用于在代价地图添加障碍物，再添加kinect用于导航和清除障碍物。
-scan: {sensor_frame: base_laser_link, data_type: LaserScan, topic: /scan_filtered, marking: true, clearing: true}
+  observation_sources: laser_scan_sensor
+  laser_scan_sensor: {sensor_frame: base_laser_link, data_type: LaserScan, topic: scan, marking: true, clearing: true}
+
+inflation_layer:
+  enabled: true
+  cost_scaling_factor: 12.0
+  inflation_radius: 0.15
+
+static_layer:
+  enabled: true
+  map_topic: "/map"

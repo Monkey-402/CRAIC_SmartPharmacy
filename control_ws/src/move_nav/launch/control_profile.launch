@@ -1,0 +1,72 @@
+<launch>
+  <!-- 双车 profile：上游先 rosparam load；业务参数以 yaml 为准。
+       下列 node 内 param 仅覆盖视觉/调试项（与 yaml 键不重复则并存）。 -->
+  <arg name="board1_decode_service" default="/yaofang_vision/board1_decode" />
+  <arg name="board2_decode_service" default="/yaofang_vision/board2_decode" />
+  <arg name="vision_service_wait_timeout" default="30.0" />
+  <arg name="use_mock_data" default="false" />
+  <arg name="mock_navigation" default="false" />
+  <arg name="max_rounds" default="0" />
+  <arg name="audio_dir" default="$(find move_nav)/audio" />
+  <arg name="snapshot_dir" default="$(find move_nav)/../snapshots/" />
+  <arg name="image_topic" default="/camera/rgb/image_raw" />
+
+  <arg name="qr_image_ready_timeout_sec" default="0.5" />
+  <arg name="qr_image_ready_poll_sec" default="0.01" />
+  <arg name="qr_bright_thresh" default="165" />
+  <arg name="qr_min_bright_pixels" default="30" />
+  <arg name="qr_min_qr_area" default="120" />
+  <arg name="qr_crop_margin_ratio" default="0.15" />
+
+  <arg name="use_paddle_ocr" default="false" />
+  <arg name="paddle_ocr_url" default="http://127.0.0.1:8765" />
+  <arg name="paddle_ocr_timeout" default="120.0" />
+  <arg name="paddle_ocr_use_keyword_inference" default="true" />
+  <arg name="ocr_dark_mask_threshold" default="120" />
+
+  <include file="$(find qr_code_recognition)/launch/qr.launch">
+    <arg name="board1_decode_service" value="$(arg board1_decode_service)" />
+    <arg name="image_ready_timeout_sec" value="$(arg qr_image_ready_timeout_sec)" />
+    <arg name="image_ready_poll_sec" value="$(arg qr_image_ready_poll_sec)" />
+    <arg name="bright_thresh" value="$(arg qr_bright_thresh)" />
+    <arg name="min_bright_pixels" value="$(arg qr_min_bright_pixels)" />
+    <arg name="min_qr_area" value="$(arg qr_min_qr_area)" />
+    <arg name="crop_margin_ratio" value="$(arg qr_crop_margin_ratio)" />
+  </include>
+
+  <group unless="$(arg use_paddle_ocr)">
+    <include file="$(find text_recognition)/launch/ocr_service.launch">
+      <arg name="board2_decode_service" value="$(arg board2_decode_service)" />
+      <arg name="dark_mask_threshold" value="$(arg ocr_dark_mask_threshold)" />
+    </include>
+  </group>
+  <group if="$(arg use_paddle_ocr)">
+    <include file="$(find board2_paddle_ocr)/launch/ocr_paddle_service.launch">
+      <arg name="board2_decode_service" value="$(arg board2_decode_service)" />
+      <arg name="paddle_ocr_url" value="$(arg paddle_ocr_url)" />
+      <arg name="paddle_ocr_timeout" value="$(arg paddle_ocr_timeout)" />
+      <arg name="use_keyword_inference" value="$(arg paddle_ocr_use_keyword_inference)" />
+    </include>
+  </group>
+
+  <node name="yaofang_control_service_node"
+        pkg="move_nav"
+        type="yaofang_control_service_node"
+        output="screen">
+    <param name="use_mock_data" value="$(arg use_mock_data)" />
+    <param name="mock_navigation" value="$(arg mock_navigation)" />
+    <param name="max_rounds" value="$(arg max_rounds)" />
+    <param name="board1_detection_service" value="$(arg board1_decode_service)" />
+    <param name="board2_detection_service" value="$(arg board2_decode_service)" />
+    <param name="vision_service_wait_timeout" value="$(arg vision_service_wait_timeout)" />
+    <param name="audio_dir" value="$(arg audio_dir)" />
+    <param name="snapshot_dir" value="$(arg snapshot_dir)" />
+    <param name="image_topic" value="$(arg image_topic)" />
+  </node>
+
+  <!-- 参数来自 profile yaml 的 car_tcp_bridge 段，不在 launch 里写 role/peer_ip -->
+  <node name="car_tcp_bridge"
+        pkg="move_nav"
+        type="car_tcp_bridge.py"
+        output="screen" />
+</launch>

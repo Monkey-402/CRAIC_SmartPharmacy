@@ -58,6 +58,11 @@
   <exec_depend>rospy</exec_depend>
   <exec_depend>urdf</exec_depend>
   <exec_depend>xacro</exec_depend>
+  <exec_depend>amcl</exec_depend>
+  <exec_depend>move_base</exec_depend>
+  <exec_depend>map_server</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>topic_tools</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

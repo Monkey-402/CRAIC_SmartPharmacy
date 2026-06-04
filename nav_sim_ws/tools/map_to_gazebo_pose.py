@@ -61,18 +61,18 @@ GOAL_NAME = "home"
 
 # Calibration between map coordinates and Gazebo/world coordinates.
 #
-# Current observed relationship in this simulation:
+# Current observed relationship in this simulation (yaofang spawn unchanged):
 #   map    (0.0, 0.0, 0.0)
 #   equals
-#   Gazebo (1.74, 1.74, 3.14)
+#   Gazebo (0.271, -2.097, 0.0)
 #
 # If you recalibrate the map/world relationship later, edit these values.
 MAP_REF_X = 0.0
 MAP_REF_Y = 0.0
 MAP_REF_YAW = 0.0
-GAZEBO_REF_X = 1.74
-GAZEBO_REF_Y = 1.74
-GAZEBO_REF_YAW = 3.14
+GAZEBO_REF_X = 0.271
+GAZEBO_REF_Y = -2.097
+GAZEBO_REF_YAW = 0.0
 
 
 def normalize_angle(angle):
