@@ -1,0 +1,23 @@
+# 在 docker/ 目录下执行: docker compose build && docker compose run --rm craic bash
+# 或从 craic 根: docker compose -f docker/docker-compose.yml build
+
+services:
+  craic:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: craic:melodic
+    container_name: craic
+    network_mode: host
+    privileged: true
+    stdin_open: true
+    tty: true
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+    volumes:
+      - ..:/root/craic:rw
+      - ../../snapshots:/root/snapshots:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    working_dir: /root/craic

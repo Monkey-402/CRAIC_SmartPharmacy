@@ -160,7 +160,6 @@ bool MyLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel) {
         return false;
     }
     
-    // 步骤1: 更新所有必要的数据
     if (!updateRobotPose()) {
         ROS_WARN("Failed to update robot pose");
         return false;
@@ -171,13 +170,10 @@ bool MyLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel) {
         return false;
     }
     
-    // 步骤2: 发布局部路径用于可视化
     publishLocalPlan();
     
-    // 步骤3: 调用你的算法
     cmd_vel = computeMyAlgorithm();
     
-    // 步骤4: 发布速度命令
     publishVelocity(cmd_vel);
     
     return true;

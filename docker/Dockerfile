@@ -1,14 +1,11 @@
 # CRAIC — Ubuntu 18.04 + ROS Melodic
-# 默认构建 nav_sim_ws、nav_real_ws、robot_ws、control_ws（含 Python 2 视觉依赖）
+# 构建上下文为 craic 根目录（见 docker/README.md）
 #
-# 构建:
-#   docker build -t craic:melodic /path/to/craic
+#   cd ~/craic
+#   docker build -f docker/Dockerfile -t craic:melodic .
 #
-# 仿真导航:
-#   docker compose run --rm craic roslaunch car_sim nav_sim.launch
-#   # 或
-#   docker run --rm -it --net=host -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix craic:melodic \
-#     roslaunch car_sim nav_sim.launch
+# 或使用 compose（推荐）:
+#   cd ~/craic/docker && docker compose build
 
 FROM osrf/ros:melodic-desktop-full
 
@@ -21,7 +18,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     ROS_DISTRO=melodic \
     CRAIC_HOME=${CRAIC_HOME}
 
-# 导航 / 仿真依赖（desktop-full 已含 Gazebo、RViz 等）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-melodic-navigation \
     ros-melodic-amcl \
@@ -50,7 +46,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR ${CRAIC_HOME}
 COPY . ${CRAIC_HOME}/
 
-# 修正仓库内写死的本机路径 -> 容器内路径
 RUN find "${CRAIC_HOME}" -type f \( -name '*.yaml' -o -name '*.py' -o -name '*.cpp' -o -name '*.launch' \) \
       -exec grep -l '/home/zinn' {} + 2>/dev/null | while read -r f; do \
         sed -i 's|/home/zinn|/root|g' "$f"; \
@@ -58,7 +53,6 @@ RUN find "${CRAIC_HOME}" -type f \( -name '*.yaml' -o -name '*.py' -o -name '*.c
 
 RUN mkdir -p /root/snapshots
 
-# ---------- catkin 编译 ----------
 RUN /bin/bash -c "source /opt/ros/melodic/setup.bash && \
     cd ${CRAIC_HOME}/nav_sim_ws && catkin_make"
 

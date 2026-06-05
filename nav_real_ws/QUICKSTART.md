@@ -1,6 +1,6 @@
 # Quickstart（实机导航）
 
-> **总览**：见 [`../QUICKSTART.md`](../QUICKSTART.md)。下文为实车 RViz、性能验收与排错补充。
+> **总览**：见 [`../QUICKSTART.md`](../QUICKSTART.md)。架构与 Launch 说明见 [`README.md`](README.md)。
 
 实机默认**不启 Gazebo**，在宿主 ROS（常见为 Noetic/Melodic）上运行。
 
@@ -20,7 +20,7 @@ source ~/craic/nav_real_ws/devel/setup.bash
 
 ## 3) 启动实机导航
 
-推荐顺序见 `NAV_REAL_WS.md`：**先**实车底盘与传感器，**再**本工作空间导航栈（与底盘同一 ROS master）。
+推荐顺序见 [`README.md`](README.md)：**先**实车底盘与传感器，**再**本工作空间导航栈（与底盘同一 ROS master）。
 
 ```bash
 # 导航栈（二选一；激光直接用实车 /scan_filtered，无需单独起 topic_remap）
@@ -195,7 +195,7 @@ rviz
 | 预设文件 | 用途 | `max_vel_x` | 备注 |
 |----------|------|-------------|------|
 | `base_local_planner_params_TEB.yaml` | **默认保守** | 1.0 | 当前实车默认 |
-| `base_local_planner_params_TEB_smooth.yaml` | **顺滑路径** | 1.0 | 速度同默认，减少弯口反复修角 |
+| `base_local_planner_params_TEB_smooth.yaml` | **顺滑 + 提速** | 1.15 | 弯口稳、适度提速；与 `nav_sim_ws` 同文件 |
 | `base_local_planner_params_TEB_conservative_half.yaml` | **一半速度** | 0.5 | 调试/窄道降速 |
 | `base_local_planner_params_TEB_official_max_vel.yaml` | **官方最大速度** | 1.2 | 对齐 `robot_ws_official` |
 
@@ -211,7 +211,7 @@ Costmap（与 TEB 独立）：`costmap_common_params.yaml`。
 # 默认保守（1 号车，home 初值）
 roslaunch car_sim nav_real_amcl_car1.launch
 
-# 顺滑路径（线速度 1.0，弯口更稳）
+# 顺滑 + 提速（线速度 1.15，弯口更稳）
 roslaunch car_sim nav_real_amcl_car1.launch \
   teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
 
@@ -285,7 +285,7 @@ rosparam set /move_base/TebLocalPlannerROS/global_plan_overwrite_orientation fal
 rosparam set /move_base/TebLocalPlannerROS/weight_optimaltime 1.2
 ```
 
-更多说明见 `NAV_REAL_WS.md`。控制节点见 `control_ws/README.md` 与 `~/craic/lh.txt` 中的任务点测试命令。
+更多 TEB 原理见 [`README.md`](README.md)。控制节点见 [`control_ws/QUICKSTART.md`](../control_ws/QUICKSTART.md) 与 [`lh.txt`](../lh.txt) 任务点测试。
 
 ## 7) 实车性能基准与验收
 
@@ -340,52 +340,11 @@ rostopic echo /move_base/status -n 3
 ### 7.4 跑圈 / 任务点测试
 
 - **仅导航**：按 `~/craic/lh.txt` 顺序用 RViz **2D Nav Goal** 或 `rostopic pub /move_base_simple/goal` 走 `home → board1 → pickup_* → board2 → deliver_*`；坐标与 `control_ws` 中 `GOAL_LIST` 一致，换图后需在 RViz 中核对是否仍贴墙。
-- **完整药房流程**：导航保持运行后，`roslaunch move_nav yaofang_service_mock.launch max_rounds:=1`（或 `control.launch`）；见 `control_ws/README.md`。
+- **完整药房流程**：导航保持运行后，`roslaunch move_nav yaofang_service_mock.launch max_rounds:=1`（或 `real_car1.launch`）；见 [`control_ws/QUICKSTART.md`](../control_ws/QUICKSTART.md)。
 
 ---
 
-## Docker（仿真导航，可选）
+## Docker（仿真，可选）
 
-Docker 镜像用于在**非 Ubuntu 18.04** 或不想本机装 Melodic 时跑 **Gazebo 仿真**（`nav_sim.launch`），不是用来替代实机 `nav_real.launch` 的。
+Docker 仅用于 **Gazebo 仿真**。完整步骤 → **[`docker/QUICKSTART.md`](../docker/QUICKSTART.md)**。
 
-完整步骤见 **[`nav_sim_ws/QUICKSTART.md` → 第 7 节 Docker](../nav_sim_ws/QUICKSTART.md)**。以下为常用命令摘要。
-
-### 安装 Docker 与镜像加速
-
-```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose-v2
-sudo usermod -aG docker $USER
-newgrp docker   # 或注销后重新登录
-```
-
-国内拉取 Docker Hub 若报 `i/o timeout`，配置加速（示例 `docker.1ms.run`）：
-
-```bash
-sudo mkdir -p /etc/docker
-sudo tee /etc/docker/daemon.json <<'EOF'
-{
-  "registry-mirrors": ["https://docker.1ms.run"]
-}
-EOF
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-
-docker info | grep -A3 "Registry Mirrors"
-docker pull hello-world
-```
-
-### 构建与运行仿真
-
-```bash
-cd ~/craic
-docker build -t craic:melodic .
-xhost +local:docker
-docker run --rm -it --net=host \
-  -e DISPLAY=$DISPLAY -e QT_X11_NO_MITSHM=1 \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  craic:melodic bash
-# 容器内：
-source /root/craic/nav_sim_ws/devel/setup.bash
-roslaunch car_sim nav_sim.launch
-```

@@ -12,7 +12,7 @@ cd ~/CAIR/craic/photo
 ./sync_test_photos.sh
 ```
 
-Docker 内路径相同：`/root/craic/photo/sync_test_photos.sh`
+Docker 内路径：`/root/craic/photo/sync_test_photos.sh`
 
 ## 脚本会更新两处
 

@@ -557,7 +557,7 @@ flowchart LR
 
 EPRobot 实车与赛场运行均在树莓派 4 上**原生安装** Ubuntu 18.04 + ROS Melodic，不使用 Docker。Docker 的定位是：当队员开发机已升级至 Ubuntu 22.04/24.04、无法本机安装 Melodic 时，在容器内跑 **Gazebo 仿真**（`nav_sim.launch`），替代实车进行导航调参与流程联调——**不用于实机导航或比赛日部署**。
 
-本队构建了统一的 Docker 镜像（`craic/Dockerfile`），预装 ROS Melodic、Gazebo、导航栈及仿真所需依赖，并在镜像构建阶段完成各工作空间的编译。队员只需安装 Docker 并挂载工程目录，即可获得与队友一致的**仿真环境**，新成员可在较短时间内启动 Gazebo、看到机器人在虚拟赛场中运动，而无需在本机重装 Melodic。容器化使 Gazebo 仿真从「某位队员机器上的特例」变为团队共享的基础设施；实车联调、视觉 OCR（含 PaddleOCR + Miniforge）均在树莓派上原生运行。
+本队构建了统一的 Docker 镜像（[`craic/docker/`](docker/)），预装 ROS Melodic、Gazebo、导航栈及仿真所需依赖，并在镜像构建阶段完成各工作空间的编译。队员只需安装 Docker 并挂载工程目录，即可获得与队友一致的**仿真环境**，新成员可在较短时间内启动 Gazebo、看到机器人在虚拟赛场中运动，而无需在本机重装 Melodic。容器化使 Gazebo 仿真从「某位队员机器上的特例」变为团队共享的基础设施；实车联调、视觉 OCR（含 PaddleOCR + Miniforge）均在树莓派上原生运行。
 
 ### 7.5 仿真对五项任务的具体支撑
 

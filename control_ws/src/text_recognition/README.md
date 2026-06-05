@@ -31,18 +31,22 @@
 
 ## 安装依赖
 
-apt-get update
-apt-get install tesseract-ocr tesseract-ocr-chi-sim python-opencv python-pip -y
-pip2 install 'pytesseract==0.2.9'
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim python-opencv python-pip
+sudo pip2 install 'pytesseract==0.2.9'
+```
 
 ## 运行
 
+默认随 `control.launch` 启动。单独调试：
+
 ```bash
-cd CRAIC_SmartPharmacy/control_ws
-catkin_make
-source devel/setup.bash
+source ~/craic/control_ws/devel/setup.bash
 roslaunch text_recognition ocr_service.launch
 ```
+
+命令汇总 → [`../../QUICKSTART.md`](../../QUICKSTART.md)。
 
 默认服务名：`/yaofang_vision/board2_decode`。
 

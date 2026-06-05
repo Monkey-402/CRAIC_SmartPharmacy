@@ -60,29 +60,6 @@
 
 ---
 
-## 目录结构（开发者视角）
-
-- `src/car_sim/launch/nav_sim.launch`：总入口
-- `src/car_sim/launch/car_urdf.launch`：world 与机器人 spawn
-- `src/car_sim/launch/move_base.launch`：move_base 与 TEB 装载
-- `src/car_sim/param/base_local_planner_params_TEB.yaml`：TEB 运动学/避障权重
-- `src/car_sim/param/costmap_common_params.yaml`：footprint 与膨胀配置
-- `src/yaofang_world/models/yaofang/model.sdf`：墙体/地板几何和材质引用
-- `src/yaofang_world/models/yaofang/materials/`：贴图与材质脚本
-
----
-
-## 构建与启动
-
-```bash
-cd ~/craic/nav_sim_ws
-catkin_make
-source devel/setup.bash
-roslaunch car_sim nav_sim.launch
-```
-
----
-
 ## 当前默认配置
 
 - 局部规划器：`teb_local_planner/TebLocalPlannerROS`
@@ -96,4 +73,16 @@ roslaunch car_sim nav_sim.launch
 
 - **调 TEB**：优先改 `min_obstacle_dist`、`inflation_dist`、`yaw_goal_tolerance`
 - **调贴墙行为**：同步观察 TEB 参数与 `costmap_common_params.yaml` 的 `inflation_radius`
+
+---
+
+## 关键路径
+
+| 路径 | 说明 |
+|------|------|
+| `src/car_sim/launch/nav_sim_amcl.launch` | 推荐入口（话题对齐实车） |
+| `src/car_sim/param/base_local_planner_params_TEB*.yaml` | TEB 预设 |
+| `src/yaofang_world/` | Gazebo 场景与识别板贴图 |
+
+编译与 launch → [`QUICKSTART.md`](QUICKSTART.md)。TEB 预设详解 → [`../nav_real_ws/QUICKSTART.md` §6](../nav_real_ws/QUICKSTART.md)。
 

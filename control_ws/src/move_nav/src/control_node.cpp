@@ -12,9 +12,8 @@
 #include <sstream>
 #include <std_msgs/String.h>
 #include <string.h>
-// --------------  用户可改宏  --------------
 #ifndef SAVE_DIR
-#define SAVE_DIR  "/home/zinn/snapshots/"   // 末尾斜杠别丢,要修改
+#define SAVE_DIR  "/home/zinn/snapshots/"
 #endif
 enum TaskType { People = 0, Car, NoTask };
 static std::atomic<int> g_idx(0);  // 自动编号
@@ -23,8 +22,6 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 
 ros::Publisher g_task_request_pub;
 
-// 当前目标点下标
-size_t current_point = 0;
 
 struct GoalTask {
     double x;
@@ -33,9 +30,7 @@ struct GoalTask {
     TaskType task_type;
 };
 
-// 预定义目标点列表 {x坐标, y坐标, 航向角(yaw), 到点触发任务类型}
 const std::vector<GoalTask> GOAL_LIST = {
-    //坐标暂不确定，可以虚构
     {3.38, 0.14, 1.57, NoTask},
     {3.44, 1.31, 3.14, NoTask},
     {2.62, 1.30, -1.57, People},
@@ -71,8 +66,7 @@ void publishTaskRequest(TaskType task_type, size_t goal_index, const std::string
 }
 
 void taskResultCB(const std_msgs::String::ConstPtr& msg) {
-    //视觉节点处理后的消息返回
-    ROS_INFO("收到开发者实现节点返回结果: %s", msg->data.c_str());
+    ROS_INFO("收到任务结果: %s", msg->data.c_str());
 }
 
 void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
@@ -127,7 +121,7 @@ void movetoPoint(move_base_msgs::MoveBaseGoal goal, MoveBaseClient &client)
     ++current_point;
     ros::Duration(0.1).sleep();
     
-    // 到达特定目标点后触发任务（由开发者实现具体处理）
+    // 到达目标点后触发视觉任务
     const TaskType task = GOAL_LIST[current_point - 1].task_type;
     if (task != NoTask) {
         ROS_INFO("Trigger task at goal %zu: %s", current_point - 1, taskTypeToString(task));
@@ -170,7 +164,6 @@ int main(int argc, char* argv[]){
     g_task_request_pub = nh.advertise<std_msgs::String>("smartcommunity/task_request", 10);
 
     ROS_INFO("=== 导航系统启动 ===");
-    // 等待action服务器启动
     ROS_INFO("Waiting for move_base action server...");
     MoveClient.waitForServer();
     ROS_INFO("Connected to move_base action server");
@@ -180,15 +173,11 @@ int main(int argc, char* argv[]){
         return 1;
     }
     ROS_INFO("开始导航，总共 %zu 个目标点", GOAL_LIST.size());
-    ROS_INFO("视觉任务已抽象为 smartcommunity/task_request，开发者可自行订阅并实现。");
-    ROS_INFO("结果回传订阅: smartcommunity/task_result");
     for(int i = 0; i < GOAL_LIST.size(); i++){
         movetoPoint(toMove(i),MoveClient);
         ros::spinOnce();
     }
 
     ROS_INFO("=== 导航完成 ===");
-    ROS_INFO("导航任务结束。");
-    ROS_INFO("如需业务统计，请在外部任务处理节点中实现并回传。");
     return 0;
 }
