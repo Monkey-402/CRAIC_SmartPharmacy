@@ -1,0 +1,10 @@
+Map overlay (team map frame)
+Transform: p_team = R(0.00 deg) * p_off + (-0.2000, -3.7500)
+Image size: 92 x 114 px, 0.05 m/px
+World bounds: x=[-2.531, 2.069]  y=[-4.950, 0.718]
+
+Colors:
+  Gold  = overlap (walls match after transform)
+  Blue  = team map only
+  Red   = official map only (after transform)
+  Gray  = free in both

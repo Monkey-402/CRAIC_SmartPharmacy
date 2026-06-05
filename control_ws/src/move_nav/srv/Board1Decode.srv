@@ -1,5 +1,7 @@
 string image_path
 bool prefer_fewest_samples
+# 0=默认选样本最多；>0=双车指定轮优先选该样本数（如最后一轮 prefer_sample_count:=2）
+int32 prefer_sample_count
 ---
 bool has_a
 bool has_b

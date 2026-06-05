@@ -1,99 +1,61 @@
-# nav_sim_ws
+# nav_real_ws
 
-`nav_sim_ws` 是一个面向开发与调参的 ROS 导航仿真工作区，核心目标是：
+实机导航工作空间，由 `nav_sim_ws` 派生，**默认 launch 不启动 Gazebo**。在实车 `robot_ws` 底盘与传感器就绪后，于同一 ROS master 上运行 `move_base + AMCL/Hector + TEB`。
 
-- 在 Gazebo 中复现室内药房场景（`yaofang`）
-- 使用简化车体模型进行定位与路径规划验证
-- 基于 `move_base + TEB` 快速迭代导航参数
+**启动命令** → [`QUICKSTART.md`](QUICKSTART.md)
 
----
+## 与 nav_sim_ws 的差异
 
-## 软件架构
+| 项目 | nav_sim_ws | nav_real_ws |
+|------|------------|-------------|
+| 主入口 | `nav_sim.launch` / `nav_sim_amcl.launch` / `hector_sim.launch` | `nav_real_amcl.launch` / `nav_real_hector.launch` |
+| 仿真时间 | `/clock`（Gazebo） | `use_sim_time:=false` |
+| 话题桥接 | 无 | 可选 `topic_remap_ros`（默认全关） |
+| 基坐标系 | `base_footprint` | `base_footprint`（对齐官方） |
 
-系统按 4 层组织：
+包 `yaofang_world` 仍保留在工作空间内便于联编，**实机导航默认不引用**。
 
-1. **场景层（World/Map）**
-   - Gazebo world: `src/yaofang_world/worlds/yaofang.world`
-   - Gazebo model: `src/yaofang_world/models/yaofang/`
-   - 静态栅格地图: `src/car_sim/map/map_sim.yaml` + `.pgm`
+## 推荐栈顺序
 
-2. **机器人模型层（Robot Description）**
-   - 简化车体与传感器定义: `src/robot_description/car_simple/urdf/car_simple.urdf`
-   - 机器人由 `car_urdf.launch` 注入 `robot_description` 并在 Gazebo 中 spawn
+1. **底盘**（`robot_ws`）：`chassis.launch`，默认 `pub_odom_tf:=false`  
+2. **导航**（本工作空间）：`nav_real_amcl.launch`（EKF + AMCL）或 `nav_real_amcl_no_ekf` / `nav_real_hector`  
+3. **主控**（`control_ws`）：订阅 `/camera/rgb/image_raw`、`/scan_filtered` 等  
 
-3. **定位与导航层（Localization + Planning）**
-   - 定位: `amcl`
-   - 全局规划: `move_base` 默认全局规划器
-   - 局部规划: `teb_local_planner/TebLocalPlannerROS`
-   - 代价地图: global/local costmap
+> **对齐官方**：AMCL / costmap 使用 `base_footprint`；默认 AMCL 栈启用 **EKF**（`/odom` + `/imu_data` → `/odometry/filtered`）。TEB yaml **须**设 `enable_homotopy_class_planning: false`（Pi 上否则 `/cmd_vel` 可能仅 ~1 Hz）。
 
-4. **可视化与交互层（Visualization）**
-   - RViz: `src/car_sim/rviz/nav.rviz`
-   - 典型交互：`2D Pose Estimate`、`2D Nav Goal`
+导航是否正常，优先看发 Nav Goal 后 **`/cmd_vel` 是否维持约 8 Hz** → [`QUICKSTART.md` §7](QUICKSTART.md#7-实车性能基准与验收)。
 
----
+## Launch 入口
 
-## 包职责说明
+| 定位方式 | Launch | 说明 |
+|----------|--------|------|
+| AMCL + EKF（默认） | `nav_real_amcl.launch` | 别名 `nav_real.launch` |
+| AMCL + EKF，双车 | `nav_real_amcl_car1.launch` / `car2.launch` | 初值 home / standby |
+| AMCL，无 EKF | `nav_real_amcl_no_ekf.launch` | 底盘须 `pub_odom_tf:=true` |
+| AMCL 无 EKF，双车 | `nav_real_amcl_no_ekf_car1/2.launch` | 同上 |
+| Hector SLAM | `nav_real_hector.launch` | 在线建图 + 导航；底盘须 `pub_odom_tf:=true` |
 
-- `src/car_sim`
-  - 导航系统主入口，集中管理 launch、参数和地图
-  - 启动链路：场景 -> 机器人 -> 定位 -> move_base -> rviz
-- `src/robot_description/car_simple`
-  - 轻量机器人模型，适合快速调参与避障行为验证
-- `src/yaofang_world`
-  - 仿真地形与贴图资源（包括地板贴图材质与墙体模型）
+带 `_with_remap` 的 launch 仍 include `topic_remap_ros`，但默认 **不转发**任何话题，行为与无 remap 版等价。
 
----
+公共参数：`use_sim_time`（默认 `false`）、`no_rviz`（默认 `false`）、`teb_config`（TEB yaml 路径）、`map`（默认 `map_sim.yaml`）。
 
-## 运行时节点与数据流
+## 地图与参数
 
-启动 `roslaunch car_sim nav_sim.launch` 后，关键节点关系为：
+- 地图：`src/car_sim/map/map_sim.yaml` + `map_sim.pgm`（Hector 建图见 `nav_sim_ws/QUICKSTART` §3.1）。  
+- TEB 四套预设、Costmap：`src/car_sim/param/`（与 `nav_sim_ws` 同名文件保持同步）。  
+- RViz 配置：`src/car_sim/rviz/nav.rviz`。
 
-- Gazebo 发布仿真时间 `/clock`
-- 机器人插件发布 `/odom`、`/scan`、`/imu/data`、相机图像
-- `map_server` 发布静态地图
-- `amcl` 融合 `/scan + map + odom`，输出 `map -> odom`
-- `move_base` 读取代价地图与定位结果，输出 `/cmd_vel`
-- 机器人底盘插件消费 `/cmd_vel` 驱动模型运动
+## 常用话题
 
-这条闭环是调参核心：`/scan -> costmap/TEB -> /cmd_vel -> /odom -> AMCL/TF`。
+| 话题 | 说明 |
+|------|------|
+| `/scan_filtered` | 导航激光 |
+| `/odom` / `/odometry/filtered` | 里程计（EKF 模式下后者为主） |
+| `/camera/rgb/image_raw` | 相机（与底盘、主控一致） |
+| `/move_base` | 导航 action |
 
----
+Legacy 话题 remap → [`src/topic_remap_ros/README.md`](src/topic_remap_ros/README.md)。
 
-## 目录结构（开发者视角）
+## 依赖
 
-- `src/car_sim/launch/nav_sim.launch`：总入口
-- `src/car_sim/launch/car_urdf.launch`：world 与机器人 spawn
-- `src/car_sim/launch/move_base.launch`：move_base 与 TEB 装载
-- `src/car_sim/param/base_local_planner_params_TEB.yaml`：TEB 运动学/避障权重
-- `src/car_sim/param/costmap_common_params.yaml`：footprint 与膨胀配置
-- `src/yaofang_world/models/yaofang/model.sdf`：墙体/地板几何和材质引用
-- `src/yaofang_world/models/yaofang/materials/`：贴图与材质脚本
-
----
-
-## 构建与启动
-
-```bash
-cd ~/craic/nav_sim_ws
-catkin_make
-source devel/setup.bash
-roslaunch car_sim nav_sim.launch
-```
-
----
-
-## 当前默认配置
-
-- 局部规划器：`teb_local_planner/TebLocalPlannerROS`
-- 机器人 footprint：`0.35m x 0.20m`（矩形）
-- 地形：`yaofang.world`
-- 机器人模型：`car_simple`
-
----
-
-## 开发建议
-
-- **调 TEB**：优先改 `min_obstacle_dist`、`inflation_dist`、`yaw_goal_tolerance`
-- **调贴墙行为**：同步观察 TEB 参数与 `costmap_common_params.yaml` 的 `inflation_radius`
-
+与 `nav_sim_ws` 相同：`move_base`、`amcl`、`map_server`、`teb_local_planner`、`robot_localization`（EKF）等。不运行 Gazebo 时可不依赖 `gazebo_ros` 运行时。

@@ -14,6 +14,7 @@ yaofang_control_service_node:
   enable_prestart_countdown: true
   prestart_countdown_sec: 5.0
   min_samples_team_round: 4
+  last_round_prefer_sample_count: 2
   require_judgement_tcp: true
   judgement_connected_topic: "/judgement/peer_connected"
   match_start_wait_timeout: 300.0

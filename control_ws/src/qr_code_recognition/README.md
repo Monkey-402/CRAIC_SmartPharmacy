@@ -16,7 +16,7 @@
 1. 对灰度图取亮白像素（`bright_thresh`）求坐标均值，作为参考中心（非图像几何中心）
 2. 全图 pyzbar 扫码（1.0× / 1.5× / 2.0×，失败则试反色图）
 3. 按码中心相对参考中心的象限分配 slot 1–4
-4. 多格有码时选一个：默认 **样本数最多**；`prefer_fewest_samples=true` 时选 **样本数最少**（双车累计第 4 轮）
+4. 多格有码时选一个：默认 **样本数最多**；`prefer_sample_count>0` 时优先选该样本数（双车第 4 轮默认 2）；`prefer_fewest_samples=true` 时选最少（兼容旧接口）
 
 ## 裁剪图保存
 
@@ -50,7 +50,10 @@ python /path/to/snapshots/decode_board1.py image.jpg --save-debug
 
 ## 启动
 
+通常由 `move_nav` 的 `control.launch` / `real_car*.launch` 一并拉起。单独调试：
+
 ```bash
 roslaunch qr_code_recognition qr.launch
-# 或经 move_nav control.launch / real_car1.launch 一并拉起
 ```
+
+命令汇总 → [`../../QUICKSTART.md`](../../QUICKSTART.md)。
