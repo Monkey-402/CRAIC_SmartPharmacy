@@ -50,13 +50,7 @@ rosrun board2_paddle_ocr paddle_ocr_client.py --health
 
 ## ROS 集成
 
-默认仍用 Tesseract（`text_recognition`）：
-
-```bash
-roslaunch move_nav control.launch
-```
-
-启用 Paddle：
+默认 Tesseract（`text_recognition`）。启用 Paddle 与实车 launch → [`../../QUICKSTART.md`](../../QUICKSTART.md) §6。
 
 ```bash
 roslaunch move_nav control.launch use_paddle_ocr:=true

@@ -1,34 +1,43 @@
 TebLocalPlannerROS:
 
-  # CRAIC：顺滑路径版（速度与默认 TEB 相同）
-  # teb_config:=$(find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+  # =============================================================================
+  # CRAIC：顺滑 + 适度提速 + 窄道可规划（与 nav_real_ws 同版）
+  #
+  # 起步/窄位倒车（未关闭）：
+  #   allow_init_with_backwards_motion: true
+  #   max_vel_x_backwards 0.6 | weight_kinematics_forward_drive 40
+  #
+  # 窄道：overwrite_orientation true | viapoint_sep 0.45 | lookahead 3.0
+  #
+  # 仿真：roslaunch car_sim nav_sim_amcl.launch teb_config:=.../_TEB_smooth.yaml
+  # =============================================================================
 
   odom_topic: odom
   map_frame: map
 
-  max_vel_x: 1.0
-  max_vel_x_backwards: 0.4
+  max_vel_x: 1.15
+  max_vel_x_backwards: 0.6
   max_vel_y: 0.0
-  max_vel_theta: 0.8
-  acc_lim_x: 0.6
+  max_vel_theta: 0.9
+  acc_lim_x: 0.5
   acc_lim_y: 0.0
-  acc_lim_theta: 0.4
+  acc_lim_theta: 0.45
   min_turning_radius: 0.52
   wheelbase: 0.17
   cmd_angle_instead_rotvel: false
 
   teb_autosize: true
-  dt_ref: 0.35
+  dt_ref: 0.3
   dt_hysteresis: 0.1
   min_samples: 3
-  global_plan_overwrite_orientation: false
-  global_plan_viapoint_sep: 0.8
-  max_global_plan_lookahead_dist: 3.5
+  global_plan_overwrite_orientation: true
+  global_plan_viapoint_sep: 0.45
+  max_global_plan_lookahead_dist: 3.0
   global_plan_prune_distance: 0.6
   allow_init_with_backwards_motion: true
 
-  xy_goal_tolerance: 0.12
-  yaw_goal_tolerance: 0.2
+  xy_goal_tolerance: 0.14
+  yaw_goal_tolerance: 0.25
   free_goal_vel: false
 
   footprint_model:
@@ -43,16 +52,16 @@ TebLocalPlannerROS:
 
   no_inner_iterations: 5
   no_outer_iterations: 4
-  weight_optimaltime: 1.2
-  weight_max_vel_x: 1.0
+  weight_optimaltime: 3.5
+  weight_max_vel_x: 1.5
   weight_max_vel_theta: 1.0
   weight_acc_lim_x: 1.0
   weight_acc_lim_theta: 1.0
   weight_kinematics_nh: 1000.0
-  weight_kinematics_forward_drive: 55.0
+  weight_kinematics_forward_drive: 40.0
   weight_kinematics_turning_radius: 18.0
   weight_obstacle: 50.0
-  weight_viapoint: 32.0
+  weight_viapoint: 28.0
   weight_shortest_path: 1.5
 
   enable_homotopy_class_planning: false

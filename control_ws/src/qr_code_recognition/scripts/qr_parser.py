@@ -27,7 +27,7 @@ def _sample_flags(text):
     return has_a, has_b, has_c, sample_count
 
 
-def parse_qr(qr_list, prefer_fewest=False):
+def parse_qr(qr_list, prefer_fewest=False, prefer_sample_count=0):
     candidates = []
 
     for qr in qr_list:
@@ -51,8 +51,22 @@ def parse_qr(qr_list, prefer_fewest=False):
     if not candidates:
         return False, False, False, 0, 0
 
-    # 多格有码：默认选样本数最多；prefer_fewest 时选样本数最少（双车第 4 轮省时间）。
-    if prefer_fewest:
+    target = int(prefer_sample_count or 0)
+    if target > 0:
+        # 双车最后一轮等：优先选恰好 N 个样本的码；无则选与 N 最接近的（同距取样本较多）。
+        exact = [c for c in candidates if c["sample_count"] == target]
+        if exact:
+            selected = min(exact, key=lambda c: c["delivery_slot"])
+        else:
+            selected = min(
+                candidates,
+                key=lambda c: (
+                    abs(c["sample_count"] - target),
+                    -c["sample_count"],
+                    c["delivery_slot"],
+                ),
+            )
+    elif prefer_fewest:
         selected = min(
             candidates,
             key=lambda candidate: (

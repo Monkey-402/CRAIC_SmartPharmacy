@@ -141,8 +141,11 @@ class QRNode:
 
         try:
             prefer_fewest = bool(getattr(req, "prefer_fewest_samples", False))
+            prefer_sample_count = int(getattr(req, "prefer_sample_count", 0) or 0)
             has_a, has_b, has_c, delivery_slot, sample_count = parse_qr(
-                qr_list, prefer_fewest=prefer_fewest
+                qr_list,
+                prefer_fewest=prefer_fewest,
+                prefer_sample_count=prefer_sample_count,
             )
         except Exception as exc:
             msg = "parse_exception: %s" % exc
@@ -158,11 +161,12 @@ class QRNode:
             return _failure_response(msg)
 
         rospy.loginfo(
-            "Board1 decode OK (%d/%d slots, prefer_fewest=%s): "
+            "Board1 decode OK (%d/%d slots, prefer_fewest=%s prefer_sample_count=%d): "
             "A=%s B=%s C=%s delivery_slot=%d sample_count=%d",
             len(qr_list),
             4,
             prefer_fewest,
+            prefer_sample_count,
             has_a,
             has_b,
             has_c,

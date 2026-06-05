@@ -46,7 +46,6 @@ Board2Decode.srv：
 *   string speech_text #识别文字
 */
 
-// 别名
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
 enum VisionTask {
@@ -64,18 +63,17 @@ struct GoalTask {
 
 bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client);
 
-// 任务点
 // map 原点 = Gazebo spawn (0.271, -2.097, 0)；由旧图坐标换算
 const std::vector<GoalTask> GOAL_LIST = {
     {0.0, 0.0, 0.0, "home"},
     {0.700, 0.0, 0.0, "board1_scan"},
     {0.501, 2.683, 2.225, "pickup_A"},
-    {1.261, 3.000, 1.40, "pickup_B"},
+    {1.261, 3.100, 1.40, "pickup_B"},
     {1.261, 2.129, 1.57, "pickup_C"},
     {-0.500, 4.004, 3.082, "board2_scan"},
-    {-1.860, 2.402, -1.57, "deliver_1"},
-    {-1.150, 1.950, -1.57, "deliver_2"},
-    {-1.860, 1.607, -2.359, "deliver_3"},
+    {-1.860, 2.400, -1.57, "deliver_1"},
+    {-1.150, 1.950, -0.698, "deliver_2"},
+    {-1.860, 1.590, -1.57, "deliver_3"},
     {-1.150, 0.950, -1.339, "deliver_4"},
 };
 
@@ -97,8 +95,8 @@ ros::ServiceClient g_board2_client;
 std::string g_audio_dir = "audio";
 std::string g_snapshot_dir = "/root/craic/control_ws/snapshots/";
 
-static std::atomic<int> g_img_idx(0);// 图像序号计数器
-static std::atomic<int> g_active_task(NoVisionTask);// 视觉服务开关
+static std::atomic<int> g_img_idx(0);
+static std::atomic<int> g_active_task(NoVisionTask);
 
 bool g_use_mock_data = false;
 bool g_mock_navigation = false;
@@ -111,16 +109,15 @@ double g_move_base_wait_timeout = 30.0;
 // 单个导航目标发送后，等待目标进入 ACTIVE 或终态的最长时间。
 double g_navigation_start_timeout = 30.0;
 
-// 第几个导航点
 size_t current_point = 0;
 
-bool g_service_ok = false;// 服务是否成功返回
-std::atomic<bool> g_snapshot_done(false);// 截图动作是否结束
-std::atomic<bool> g_snapshot_ok(false);// 截图是否成功
+bool g_service_ok = false;
+std::atomic<bool> g_snapshot_done(false);
+std::atomic<bool> g_snapshot_ok(false);
 std::mutex g_snapshot_image_path_mutex;
-std::string g_snapshot_image_path;// 图片绝对路径
-Board1Result g_board1_result;// 二维码缓存结果
-Board2Result g_board2_result;// 文字缓存结果
+std::string g_snapshot_image_path;
+Board1Result g_board1_result;
+Board2Result g_board2_result;
 
 std::mutex g_judgement_mutex;
 double g_odom_x = 0.0;
@@ -143,7 +140,7 @@ std::string g_map_frame = "map";
 std::string g_base_frame = "base_link";
 bool g_use_tf_pose = true;
 
-// ---------- 双车协调与板一 slot 优先级 ----------
+// 双车协调与板一 slot 优先级
 bool g_dual_car_mode = false;
 std::string g_initial_station = "home";
 std::string g_first_mover_car_id = "1";
@@ -174,13 +171,14 @@ bool g_peer_round_done_pending = false;
 int g_last_round_delivery_slot = 0;
 int g_peer_finished_missions = 0;
 int g_min_samples_team_round = 4;
+int g_last_round_prefer_sample_count = 2;
 bool g_reached_abc_announced = false;
 std::atomic<bool> g_peer_tcp_connected(false);
 std::mutex g_coord_mutex;
 ros::Publisher g_car_link_pub;
 MoveBaseClient* g_move_client_ptr = nullptr;
 
-// 生成固定的识别板一模拟结果，方便视觉节点未完成时先调试导航流程。
+// 板一 mock 数据（use_mock_data 时使用）
 Board1Result makeMockBoard1Result() {
     Board1Result result;
     result.has_a = true;
@@ -191,7 +189,7 @@ Board1Result makeMockBoard1Result() {
     return result;
 }
 
-// 生成固定的识别板二模拟结果，方便视觉节点未完成时先调试导航流程。
+// 板二 mock 数据（use_mock_data 时使用）
 Board2Result makeMockBoard2Result() {
     Board2Result result;
     result.wait_seconds = 0;
@@ -199,14 +197,14 @@ Board2Result makeMockBoard2Result() {
     return result;
 }
 
-// 计算当前二维码包含了几个取样任务
+// 统计板一结果中 A/B/C 窗口样本数
 int countBoard1Samples(const Board1Result& result) {
     return static_cast<int>(result.has_a) +
            static_cast<int>(result.has_b) +
            static_cast<int>(result.has_c);
 }
 
-// 安全检测二维码识别结果
+// 校验并规范化板一识别结果（delivery_slot、sample_count 等）
 bool normalizeBoard1Result(Board1Result* result) {
     if (result == nullptr) {
         return false;
@@ -252,7 +250,7 @@ static void stopAudioPlaybackIfRunning() {
     g_audio_playback_pid = -1;
 }
 
-// 同步播放（fork 失败时回退）。
+// 同步播放 wav；fork 失败时由 startAudioFileAsync 回退调用
 void playAudioFile(const std::string& audio_file) {
     if (!audioFileExists(audio_file)) {
         ROS_WARN("音频文件不存在，跳过播放：%s", audio_file.c_str());
@@ -267,7 +265,7 @@ void playAudioFile(const std::string& audio_file) {
     }
 }
 
-// 后台 aplay，返回子进程 pid；无效路径或 fork 失败时返回 -1（失败时可能已同步播完）。
+// 后台 aplay，返回子进程 pid；无效路径或 fork 失败时返回 -1
 pid_t startAudioFileAsync(const std::string& audio_file) {
     if (!audioFileExists(audio_file)) {
         ROS_WARN("音频文件不存在，跳过播放：%s", audio_file.c_str());
@@ -310,7 +308,7 @@ bool waitAudioFileAsync(pid_t pid) {
     return true;
 }
 
-// 导航与播报并行：同时启动后台 aplay 与 movetoPoint，二者都结束才返回。
+// 导航与播报并行：aplay 与 movetoPoint 均结束才返回
 bool movetoWithAudioParallel(const GoalTask& goal,
                              MoveBaseClient& move_client,
                              const std::string& audio_file) {
@@ -320,7 +318,7 @@ bool movetoWithAudioParallel(const GoalTask& goal,
     return nav_ok;
 }
 
-// 按约定生成完整音频文件路径：audio_dir/category/key.wav。
+// 生成 audio_dir/category/key.wav 路径
 std::string audioPath(const std::string& category, const std::string& key) {
     const bool has_trailing_slash =
         !g_audio_dir.empty() &&
@@ -329,7 +327,7 @@ std::string audioPath(const std::string& category, const std::string& key) {
     return g_audio_dir + (has_trailing_slash ? "" : "/") + category + "/" + key + ".wav";
 }
 
-// 确保目录路径的末尾带有斜杠
+// 确保目录路径末尾带斜杠
 std::string directoryWithTrailingSlash(const std::string& directory) {
     if (directory.empty()) {
         return directory;
@@ -339,13 +337,11 @@ std::string directoryWithTrailingSlash(const std::string& directory) {
     return directory + ((last == '/' || last == '\\') ? "" : "/");
 }
 
-// 检查指定的路径在操作系统的文件系统中是否存在
 bool directoryExists(const std::string& directory) {
     struct stat info;
     return stat(directory.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
 }
-
-// 如果目录不存在，创建整个路径（模拟mkdir -p)
+// 目录不存在时递归创建
 bool ensureDirectoryExists(const std::string& directory) {
     if (directory.empty()) {
         ROS_ERROR("截图保存目录为空");
@@ -400,27 +396,27 @@ bool ensureDirectoryExists(const std::string& directory) {
     return directoryExists(target);
 }
 
-// 生成最终图片保存的绝对路径
+// 生成截图保存路径（snapshot_dir + 序号.jpg）
 std::string snapshotImagePath(int image_index) {
     return directoryWithTrailingSlash(g_snapshot_dir) +
            std::to_string(image_index) + ".jpg";
 }
 
-// 将化验区目标编号转换为送样音频文件名中的窗口 key。
+// 化验区窗口编号 → 送样音频 key
 std::string slotKey(int delivery_slot) {
     static const char* keys[] = {"blood", "body_fluid", "immune", "hormone"};
     delivery_slot = std::max(1, std::min(4, delivery_slot));
     return keys[delivery_slot - 1];
 }
 
-// 将识别结果编号转换为取样播报音频文件名中的样本类型 key。
+// 化验区窗口编号 → 取样播报样本类型 key
 std::string sampleKey(int delivery_slot) {
     static const char* keys[] = {"venous_blood", "saliva", "tissue", "plasma"};
     delivery_slot = std::max(1, std::min(4, delivery_slot));
     return keys[delivery_slot - 1];
 }
 
-// 根据二维码/识别板一结果生成窗口组合 key，例如 A、AB、ABC。
+// 板一 A/B/C 窗口组合 → 音频 key（如 AB、ABC）
 std::string windowsKey(const Board1Result& result) {
     std::string key;
     if (result.has_a) {
@@ -435,7 +431,7 @@ std::string windowsKey(const Board1Result& result) {
     return key;
 }
 
-// 将导航点名称映射为裁判 task 字段（A/B/C/1–4/R）。
+// 导航点名称 → 裁判 task 字段（A/B/C/1–4/R）
 std::string goalNameToTask(const std::string& goal_name) {
     if (goal_name == "pickup_A") {
         return "A";
@@ -542,8 +538,8 @@ void judgementReportTimerCB(const ros::TimerEvent& /*event*/) {
     g_judgement_pub.publish(report);
 }
 
-// 将保存后的图片路径发给二维码识别服务，并接收 Board1Decode 结构化结果。
-bool callBoard1Service(const std::string& image_path, bool prefer_fewest_samples) {
+// 调用板一识别服务，写入 g_board1_result
+bool callBoard1Service(const std::string& image_path, int prefer_sample_count) {
     if (!g_board1_client.waitForExistence(ros::Duration(5.0))) {
         ROS_ERROR("二维码识别服务不可用");
         return false;
@@ -551,10 +547,11 @@ bool callBoard1Service(const std::string& image_path, bool prefer_fewest_samples
 
     move_nav::Board1Decode srv;
     srv.request.image_path = image_path;
-    srv.request.prefer_fewest_samples = prefer_fewest_samples;
+    srv.request.prefer_fewest_samples = false;
+    srv.request.prefer_sample_count = prefer_sample_count;
 
-    ROS_INFO("调用二维码识别服务：image_path=%s，prefer_fewest=%d",
-             image_path.c_str(), prefer_fewest_samples);
+    ROS_INFO("调用二维码识别服务：image_path=%s，prefer_sample_count=%d",
+             image_path.c_str(), prefer_sample_count);
     if (!g_board1_client.call(srv)) {
         ROS_ERROR("调用二维码识别服务失败");
         return false;
@@ -584,7 +581,7 @@ bool callBoard1Service(const std::string& image_path, bool prefer_fewest_samples
     return normalizeBoard1Result(&g_board1_result);
 }
 
-// 将保存后的图片路径发给文字识别服务，并接收识别板二的化验区状态结果。
+// 调用板二文字识别服务，写入 g_board2_result
 bool callBoard2Service(const std::string& image_path) {
     if (!g_board2_client.waitForExistence(ros::Duration(5.0))) {
         ROS_ERROR("识别板二文字识别服务不可用");
@@ -640,7 +637,7 @@ void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
     g_snapshot_done.store(true);
 }
 
-// 将药房业务点位转换成 move_base 可执行的导航目标。
+// 业务点 → move_base 导航目标
 move_base_msgs::MoveBaseGoal toMove(const GoalTask& goal_task) {
     ROS_INFO("正在前往 %s：(%.2f, %.2f, yaw=%.2f)",
              goal_task.name.c_str(), goal_task.x, goal_task.y, goal_task.yaw);
@@ -661,7 +658,7 @@ move_base_msgs::MoveBaseGoal toMove(const GoalTask& goal_task) {
     return goal;
 }
 
-// 发送 move_base 导航目标，并阻塞等待机器人到达或导航失败。
+// 发送 move_base 目标并阻塞至到达或失败
 bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     const std::string task_for_goal = goalNameToTask(goal_task.name);
     if (task_for_goal == g_default_task) {
@@ -682,18 +679,17 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     ros::Rate rate(10);
     client.sendGoal(toMove(goal_task));
 
-    // 目标刚发出去时通常会先进入 PENDING，再进入 ACTIVE。
-    // 这里使用 WallTime，避免仿真时间 /clock 未发布或暂停时超时判断失效。
+    // 目标进入 ACTIVE 前用 WallTime 计时，避免 /clock 未发布或暂停导致超时失效
     const ros::WallTime start_deadline =
         ros::WallTime::now() + ros::WallDuration(g_navigation_start_timeout);
     while (ros::ok()) {
         const actionlib::SimpleClientGoalState state = client.getState();
-        // 某些很近的目标可能还没观察到 ACTIVE 就已经 SUCCEEDED，直接进入后续成功处理。
+        // 近距目标可能未观察到 ACTIVE 即 SUCCEEDED
         if (state == actionlib::SimpleClientGoalState::ACTIVE ||
             state == actionlib::SimpleClientGoalState::SUCCEEDED) {
             break;
         }
-        // 如果在启动阶段已经进入失败终态，立即返回，避免一直等 ACTIVE。
+        // 启动阶段已进入失败终态则立即返回
         if (state.isDone()) {
             ROS_ERROR("导航目标启动失败：%s，状态=%s",
                       goal_task.name.c_str(), state.toString().c_str());
@@ -746,7 +742,7 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     return true;
 }
 
-// 初始化航点表（含 rosparam 注入的 standby）。
+// 初始化航点表（含 rosparam 注入的 standby）
 void initGoalList() {
     g_goal_list.assign(GOAL_LIST.begin(), GOAL_LIST.end());
     const GoalTask standby = {g_standby_x, g_standby_y, g_standby_yaw, "standby"};
@@ -757,7 +753,7 @@ void initGoalList() {
     }
 }
 
-// 按任务点名称查找导航点，例如 pickup_A 或 board2_scan。
+// 按名称查找导航点
 const GoalTask* findGoalByName(const std::string& name) {
     for (const GoalTask& goal : g_goal_list) {
         if (goal.name == name) {
@@ -1040,9 +1036,9 @@ bool navigateToInitialStation(MoveBaseClient& move_client) {
     return true;
 }
 
-// 请求识别板一截图；回调只保存图片，本函数拿到图片路径后再调用二维码识别服务。
+// 触发板一截图，完成后调用 callBoard1Service
 bool requestBoard1Vision(double timeout_sec, Board1Result* result,
-                         bool prefer_fewest_samples) {
+                         int prefer_sample_count) {
     if (g_use_mock_data) {
         if (result != nullptr) {
             *result = makeMockBoard1Result();
@@ -1078,7 +1074,7 @@ bool requestBoard1Vision(double timeout_sec, Board1Result* result,
                 std::lock_guard<std::mutex> lock(g_snapshot_image_path_mutex);
                 image_path = g_snapshot_image_path;
             }
-            g_service_ok = callBoard1Service(image_path, prefer_fewest_samples);
+            g_service_ok = callBoard1Service(image_path, prefer_sample_count);
             if (g_service_ok && result != nullptr) {
                 *result = g_board1_result;
             }
@@ -1092,7 +1088,7 @@ bool requestBoard1Vision(double timeout_sec, Board1Result* result,
     return false;
 }
 
-// 请求识别板二截图；回调只保存图片，本函数拿到图片路径后再调用文字识别服务。
+// 触发板二截图，完成后调用 callBoard2Service
 bool requestBoard2Vision(double timeout_sec, Board2Result* result) {
     if (g_use_mock_data) {
         if (result != nullptr) {
@@ -1142,9 +1138,9 @@ bool requestBoard2Vision(double timeout_sec, Board2Result* result) {
     return false;
 }
 
-// 前往 board1_scan 识别板一；失败回 home 再重试。
+// 前往 board1_scan 识别板一；失败回 home 后重试
 bool scanBoard1WithRetry(MoveBaseClient& move_client, Board1Result* result,
-                         bool prefer_fewest_samples) {
+                         int prefer_sample_count) {
     const GoalTask* board1_goal = findGoalByName("board1_scan");
     const GoalTask* home_goal = findGoalByName("home");
     if (board1_goal == nullptr) {
@@ -1160,9 +1156,9 @@ bool scanBoard1WithRetry(MoveBaseClient& move_client, Board1Result* result,
             return false;
         }
 
-        ROS_INFO("识别板一二维码（prefer_fewest=%d）", prefer_fewest_samples);
+        ROS_INFO("识别板一二维码（prefer_sample_count=%d）", prefer_sample_count);
         Board1Result candidate;
-        if (requestBoard1Vision(15.0, &candidate, prefer_fewest_samples)) {
+        if (requestBoard1Vision(15.0, &candidate, prefer_sample_count)) {
             if (result != nullptr) {
                 *result = candidate;
             }
@@ -1182,22 +1178,22 @@ bool scanBoard1WithRetry(MoveBaseClient& move_client, Board1Result* result,
     return false;
 }
 
-// 执行一轮完整药房任务：板一扫码、取样、识别板二、送样。
+// 执行一轮药房任务：板一扫码 → 取样 → 板二 → 送样
 bool runOneQrMission(MoveBaseClient& move_client, int completed_rounds_so_far) {
-    ROS_INFO("========== 开始一轮药房任务 ==========");
+    ROS_INFO("开始一轮药房任务");
     g_reached_abc_announced = false;
 
     const int team_round_index =
         completed_rounds_so_far + g_peer_finished_missions + 1;
-    const bool prefer_fewest_samples =
-        g_dual_car_mode && (team_round_index == g_min_samples_team_round);
-    if (prefer_fewest_samples) {
-        ROS_INFO("双车累计第 %d 轮任务，板一选样本数最少的二维码",
-                 team_round_index);
+    int prefer_sample_count = 0;
+    if (g_dual_car_mode && team_round_index == g_min_samples_team_round) {
+        prefer_sample_count = g_last_round_prefer_sample_count;
+        ROS_INFO("双车累计第 %d 轮任务，板一优先选 %d 个样本的二维码",
+                 team_round_index, prefer_sample_count);
     }
 
     Board1Result board1_result;
-    if (!scanBoard1WithRetry(move_client, &board1_result, prefer_fewest_samples)) {
+    if (!scanBoard1WithRetry(move_client, &board1_result, prefer_sample_count)) {
         ROS_ERROR("识别板一流程中止");
         return false;
     }
@@ -1246,7 +1242,8 @@ bool runOneQrMission(MoveBaseClient& move_client, int completed_rounds_so_far) {
                      goal_name.c_str());
         }
 
-        ros::Duration(1.5).sleep();
+        // 规则：取样时车身进入方框并明显停留（建议 1~2s）
+        ros::Duration(1.0).sleep();
         const std::string window_name = goal_name.substr(goal_name.size() - 1);
         ROS_INFO("已取到样本：source_slot=%s", window_name.c_str());
     }
@@ -1279,11 +1276,6 @@ bool runOneQrMission(MoveBaseClient& move_client, int completed_rounds_so_far) {
     if (!board2_result.speech_text.empty()) {
         ROS_INFO("识别板二服务返回文本：%s", board2_result.speech_text.c_str());
     }
-    if (board2_result.wait_seconds > 0) {
-        ROS_INFO("化验区忙碌，在 board2_scan 等待 %d 秒后再出发送样",
-                 board2_result.wait_seconds);
-        ros::Duration(board2_result.wait_seconds).sleep();
-    }
 
     const std::string delivery_goal_name =
         "deliver_" + std::to_string(board1_result.delivery_slot);
@@ -1292,13 +1284,27 @@ bool runOneQrMission(MoveBaseClient& move_client, int completed_rounds_so_far) {
         ROS_ERROR("GOAL_LIST 中没有送样点位：%s", delivery_goal_name.c_str());
         return false;
     }
-    ROS_INFO("板二播报与前往 %s 并行", delivery_goal_name.c_str());
-    if (!movetoWithAudioParallel(*delivery_goal, move_client,
-                                 audioPath("board2", board2_key))) {
-        return false;
+
+    const std::string board2_audio = audioPath("board2", board2_key);
+    if (board2_result.wait_seconds > 0) {
+        ROS_INFO("化验区忙碌，在 board2_scan 播报 %s 并等待 %d 秒后再出发送样",
+                 board2_key.c_str(), board2_result.wait_seconds);
+        const pid_t board2_audio_pid = startAudioFileAsync(board2_audio);
+        ros::Duration(board2_result.wait_seconds).sleep();
+        waitAudioFileAsync(board2_audio_pid);
+        ROS_INFO("板二等待结束，前往 %s", delivery_goal_name.c_str());
+        if (!movetoPoint(*delivery_goal, move_client)) {
+            return false;
+        }
+    } else {
+        ROS_INFO("板二播报与前往 %s 并行", delivery_goal_name.c_str());
+        if (!movetoWithAudioParallel(*delivery_goal, move_client, board2_audio)) {
+            return false;
+        }
     }
 
-    ros::Duration(1.5).sleep();
+    // 规则：送样时车身进入方框并明显停留（建议 1~2s）
+    ros::Duration(1.0).sleep();
     ROS_INFO("样本已送达：delivery_slot=%d，count=%d",
              board1_result.delivery_slot, board1_result.sample_count);
 
@@ -1326,11 +1332,11 @@ bool runOneQrMission(MoveBaseClient& move_client, int completed_rounds_so_far) {
 
     g_last_round_delivery_slot = board1_result.delivery_slot;
 
-    ROS_INFO("========== 一轮药房任务完成 ==========");
+    ROS_INFO("一轮药房任务完成");
     return post_nav_ok;
 }
 
-// 初始化 ROS 通信接口，并循环执行药房配送任务。
+// 初始化 ROS 接口并循环执行药房任务
 int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "");
     ros::init(argc, argv, "yaofang_control_service_node");
@@ -1386,6 +1392,8 @@ int main(int argc, char* argv[]) {
     pnh.param("match_start_wait_timeout", g_match_start_wait_timeout, g_match_start_wait_timeout);
     pnh.param("min_samples_team_round", g_min_samples_team_round,
               g_min_samples_team_round);
+    pnh.param("last_round_prefer_sample_count", g_last_round_prefer_sample_count,
+              g_last_round_prefer_sample_count);
 
     initGoalList();
 
@@ -1467,8 +1475,8 @@ int main(int argc, char* argv[]) {
              g_enable_prestart_countdown,
              g_prestart_countdown_sec,
              g_require_judgement_tcp);
-    ROS_INFO("板一：board1_scan 扫码；多格有码默认选样本最多，双车第 %d 轮选最少",
-             g_min_samples_team_round);
+    ROS_INFO("板一：board1_scan 扫码；多格有码默认选样本最多，双车第 %d 轮优先选 %d 个样本",
+             g_min_samples_team_round, g_last_round_prefer_sample_count);
 
     if (!g_use_mock_data) {
         ROS_INFO("等待二维码识别服务：%s", board1_service.c_str());

@@ -1,49 +1,50 @@
 TebLocalPlannerROS:
 
   # =============================================================================
-  # CRAIC 调试：顺滑路径版（速度上限与默认 conservative 相同，优化弯口/贴线行为）
+  # CRAIC：顺滑 + 适度提速 + 窄道可规划（sim/real 同版）
   #
-  # 相对 base_local_planner_params_TEB.yaml 主要改动：
-  #   global_plan_viapoint_sep 0.8（减少弯口反复修角）
-  #   global_plan_overwrite_orientation false（朝向由 TEB 沿路径自然过渡）
-  #   weight_optimaltime 1.2 | weight_viapoint 32 | lookahead 3.5
-  #   weight_kinematics_forward_drive 55 | yaw_goal_tolerance 0.2
-  #   max_vel_theta 0.8（线速度不变，转弯更柔和）
+  # 起步/窄位倒车（未关闭）：
+  #   allow_init_with_backwards_motion: true
+  #   max_vel_x_backwards 0.6 | weight_kinematics_forward_drive 40（低于默认 80，更易倒车段）
   #
-  # 启用：
-  #   roslaunch car_sim nav_real_amcl_car1.launch \
-  #     teb_config:=$(rospack find car_sim)/param/base_local_planner_params_TEB_smooth.yaml
+  # 窄道贴全局路径（避免 viapoint 过稀切进障碍导致 not feasible）：
+  #   global_plan_overwrite_orientation true | viapoint_sep 0.45 | lookahead 3.0
+  #
+  # 弯口仍比默认 0.25 稀疏，减轻反复修角；线速度 max_vel_x 1.15
+  #
+  # 启用：nav_real_amcl_car*.launch 或 nav_sim_amcl.launch + teb_config:=..._smooth.yaml
   # =============================================================================
 
   odom_topic: odom
   map_frame: map
 
-  # ====== 运动学约束（与默认保守版速度相同）======
-  max_vel_x: 1.0
-  max_vel_x_backwards: 0.4
+  # ====== 运动学约束 ======
+  max_vel_x: 1.15
+  max_vel_x_backwards: 0.6
   max_vel_y: 0.0
-  max_vel_theta: 0.8
-  acc_lim_x: 0.6
+  max_vel_theta: 0.9
+  acc_lim_x: 0.5
   acc_lim_y: 0.0
-  acc_lim_theta: 0.4
+  acc_lim_theta: 0.45
   min_turning_radius: 0.52
   wheelbase: 0.17
   cmd_angle_instead_rotvel: false
 
-  # ====== 轨迹生成（顺滑向）======
+  # ====== 轨迹生成 ======
   teb_autosize: true
-  dt_ref: 0.35
+  dt_ref: 0.3
   dt_hysteresis: 0.1
   min_samples: 3
-  global_plan_overwrite_orientation: false
-  global_plan_viapoint_sep: 0.8
-  max_global_plan_lookahead_dist: 3.5
+  global_plan_overwrite_orientation: true
+  global_plan_viapoint_sep: 0.45
+  max_global_plan_lookahead_dist: 3.0
   global_plan_prune_distance: 0.6
+  # 允许轨迹以倒车段起步/衔接（目标在身后、窄道掉头）
   allow_init_with_backwards_motion: true
 
-  # ====== 目标容差（略放航向，减少到点原地反复拧）======
-  xy_goal_tolerance: 0.12
-  yaw_goal_tolerance: 0.2
+  # ====== 目标容差 ======
+  xy_goal_tolerance: 0.14
+  yaw_goal_tolerance: 0.25
   free_goal_vel: false
 
   footprint_model:
@@ -58,16 +59,17 @@ TebLocalPlannerROS:
 
   no_inner_iterations: 5
   no_outer_iterations: 4
-  weight_optimaltime: 1.2
-  weight_max_vel_x: 1.0
+  weight_optimaltime: 3.5
+  weight_max_vel_x: 1.5
   weight_max_vel_theta: 1.0
   weight_acc_lim_x: 1.0
   weight_acc_lim_theta: 1.0
   weight_kinematics_nh: 1000.0
-  weight_kinematics_forward_drive: 55.0
+  # 低于默认 80，减轻对倒车段的惩罚（窄道/目标在身后）
+  weight_kinematics_forward_drive: 40.0
   weight_kinematics_turning_radius: 18.0
   weight_obstacle: 50.0
-  weight_viapoint: 32.0
+  weight_viapoint: 28.0
   weight_shortest_path: 1.5
 
   enable_homotopy_class_planning: false

@@ -17,30 +17,6 @@
 #include <string>
 #include <vector>
 
-/*
- * 智慧药房 control_node 模板
- * ------------------------------------------------------------
- * 写法尽量参考 smartcommunity_control_node.cpp：
- *   1. 先定义目标点 GOAL_LIST。
- *   2. move_base 逐点导航。
- *   3. 到达目标点后根据 task_type 触发业务。
- *
- * 和 smartcommunity_control_node.cpp 的主要区别：
- *   - 这里不直接调用视觉服务。
- *   - 二维码识别通过 /smartcommunity/task_request 发布任务请求。
- *   - 视觉节点处理完后，通过 /smartcommunity/task_result 回传结果。
- *   - 当前没有机械臂/投递机构，到取样点就算获取样本，到配送点就算配送成功。
- *
- * 比赛目标：
- *   一次性配送完“一个二维码”中包含的所有样本。
-
-
-| 字段 | 含义 | 例子 |
-|---|---|---|
-| task_type | 要执行的任务类型 | "board1_decode"、"board2_decode"、"speech_notice" |
-| goal_name | 当前所在的导航点名字 | "board1_scan"、"board2_scan"、"pickup_A"、"lab_1" |
-
- */
 
 #ifndef SAVE_DIR
 #define SAVE_DIR "/home/zinn/snapshots/"
@@ -73,9 +49,6 @@ struct SampleOrder {
     bool delivered = false;
 };
 
-// -------------------- 可修改区域 --------------------
-
-// 坐标都是临时虚构的。后续地图确定后，只需要改这里。
 const std::vector<GoalTask> GOAL_LIST = {
     {0.00, 0.00, 0.00, NoTask,        "home"},
     {1.00, 0.50, 1.57, Board1Scan,    "board1_scan"},
@@ -89,34 +62,26 @@ const std::vector<GoalTask> GOAL_LIST = {
     {4.00, 3.20, 3.14, DeliverSample, "deliver_4"}
 };
 
-// 二维码视觉节点还没接好时，用这组假数据跑通比赛主流程。
 const std::vector<SampleOrder> MOCK_QR_ORDERS = {
     {"S01", "A", "blood", "1", false, false},
     {"S02", "B", "blood", "1", false, false},
     {"S03", "C", "blood", "1", false, false}
 };
 
-// -------------------- 全局变量 --------------------
-
 ros::Publisher g_task_request_pub;
 
 static std::atomic<int> g_img_idx(0);
 static std::atomic<int> g_task_idx(0);
 
-// 当前导航点序号，风格上保留 smartcommunity_control_node.cpp 的 current_point。
 size_t current_point = 0;
 
-// 拍照/视觉任务状态。这里只给二维码识别使用。
 volatile bool take_photo = false;
 std::string pending_task_id;
 std::string pending_task_type;
 std::string pending_goal_name;
 
-// 最近一次收到的任务结果。
 std::string last_result_task_id;
 std::string last_result_data;
-
-// -------------------- 字符串和消息工具 --------------------
 
 //trim：去掉字符串两边的空格
 std::string trim(const std::string& s) {
@@ -201,14 +166,12 @@ void publishTaskRequest(const std::string& task_id,
 }
 
 void publishSpeechNotice(const std::string& text) {
-    // 语音接口还没确定，这里只发布请求，不等待结果。
     publishTaskRequest(
         makeTaskId("speech_notice"),
         "speech_notice",
         {{"text", text}});
 }
 
-// -------------------- 等待拍照以及视觉节点回传指定 task_id 的结果 --------------------
 void taskResultCB(const std_msgs::String::ConstPtr& msg) {
     const std::map<std::string, std::string> kv = parseKeyValue(msg->data);
     const auto it = kv.find("task_id");
@@ -246,7 +209,6 @@ bool waitForTaskResult(const std::string& task_id,
 }
 
 
-// -------------------- 视觉拍照：只负责发请求，不负责识别 --------------------
 void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
     if (!take_photo) {
         return;
@@ -265,7 +227,6 @@ void snapshotCB(const sensor_msgs::ImageConstPtr& msg) {
 
         ROS_INFO("图片已保存: %s", image_path.c_str());
 
-        // 视觉算法全部交给外部视觉节点。这里仅发布任务请求。
         publishTaskRequest(
             pending_task_id,
             pending_task_type,
@@ -294,20 +255,19 @@ bool requestImageTaskAtCurrentPoint(const std::string& task_type,
     return waitForTaskResult(pending_task_id, timeout_sec, result);
 }
 
-//请求识别板一的二维码识别
+// 在当前点触发板一视觉任务并等待回传
 bool requestBoard1DecodeAtCurrentPoint(const std::string& goal_name,
                                        std::string* board1_result) {
     return requestImageTaskAtCurrentPoint("board1_decode", goal_name, 15.0, board1_result);
 }
 
-//请求识别板二的二维码识别
+// 在当前点触发板二视觉任务并等待回传
 bool requestBoard2DecodeAtCurrentPoint(const std::string& goal_name,
                                        std::string* board2_result) {
     return requestImageTaskAtCurrentPoint("board2_decode", goal_name, 15.0, board2_result);
 }
 
-// -------------------- 导航，保留原模板风格 --------------------
-//转换坐标格式
+// GoalTask → move_base 目标
 move_base_msgs::MoveBaseGoal toMove(const GoalTask& goal_task) {
     ROS_INFO("Moving to %s: (%.2f, %.2f, %.2f)",
              goal_task.name.c_str(), goal_task.x, goal_task.y, goal_task.yaw);
@@ -329,7 +289,7 @@ move_base_msgs::MoveBaseGoal toMove(const GoalTask& goal_task) {
     return goal;
 }
 
-//到达导航地点
+// 发送导航目标并等待到达
 bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     ros::Rate rate(10);
     move_base_msgs::MoveBaseGoal goal = toMove(goal_task);
@@ -364,7 +324,7 @@ bool movetoPoint(const GoalTask& goal_task, MoveBaseClient& client) {
     return true;
 }
 
-//返回导航目标点的指针，如果找不到返回nullptr
+// 按名称查找 GOAL_LIST 中的导航点
 const GoalTask* findGoalByName(const std::string& name) {
     for (const GoalTask& goal : GOAL_LIST) {
         if (goal.name == name) {
@@ -374,22 +334,8 @@ const GoalTask* findGoalByName(const std::string& name) {
     return nullptr;
 }
 
-// -------------------- 二维码样本解析和路线生成 --------------------
-
-// 解析识别板一的结果，提取样本订单信息。
+// 解析板一回传中的 samples 字段，生成 SampleOrder 列表
 std::vector<SampleOrder> parseOrdersFromBoard1Result(const std::string& result_data) {
-    /*
-     * 临时约定识别板一视觉节点回传格式：
-     *   task_id=xxx;status=ok;samples=S01@A:blood->1,S02@B:blood->1
-     *
-     * S01 是样本编号，A/B/C 是体检区窗口，blood 是样本类别，1 是化验区窗口。
-     * 规则里识别板一的方框 1/2/3/4 分别对应：
-     *   1 血常规窗口 -> 静脉血样本
-     *   2 体液窗口   -> 唾液样本
-     *   3 免疫检测   -> 组织样本
-     *   4 激素检验   -> 血浆样本
-     * 后续如果视觉节点回传 JSON，只改这个函数即可。
-     */
     const std::map<std::string, std::string> kv = parseKeyValue(result_data);
 
     std::string sample_text;
@@ -399,7 +345,7 @@ std::vector<SampleOrder> parseOrdersFromBoard1Result(const std::string& result_d
     }
 
     if (sample_text.empty()) {
-        ROS_WARN("识别板一结果中没有 samples 字段，使用假数据跑通流程");
+        ROS_WARN("识别板一结果中没有 samples 字段，使用 MOCK_QR_ORDERS");
         return MOCK_QR_ORDERS;
     }
 
@@ -418,21 +364,21 @@ std::vector<SampleOrder> parseOrdersFromBoard1Result(const std::string& result_d
         }
 
         SampleOrder order;
-        order.sample_id = trim(token.substr(0, at_pos));//样本编号
-        order.source_slot = trim(token.substr(at_pos + 1, colon_pos - at_pos - 1));//体检区窗口
-        order.sample_type = trim(token.substr(colon_pos + 1, arrow_pos - colon_pos - 1));//样本类别
-        order.delivery_slot = trim(token.substr(arrow_pos + 2));//化验区窗口
+        order.sample_id = trim(token.substr(0, at_pos));
+        order.source_slot = trim(token.substr(at_pos + 1, colon_pos - at_pos - 1));
+        order.sample_type = trim(token.substr(colon_pos + 1, arrow_pos - colon_pos - 1));
+        order.delivery_slot = trim(token.substr(arrow_pos + 2));
         orders.push_back(order);
     }
 
     if (orders.empty()) {
-        ROS_WARN("识别板一解析后样本为空，使用假数据跑通流程");
+        ROS_WARN("识别板一解析后样本为空，使用 MOCK_QR_ORDERS");
         return MOCK_QR_ORDERS;
     }
     return orders;
 }
 
-//将取样窗口转成实际导航点
+// 体检区窗口 → pickup 导航点名称
 std::string pickupGoalNameForSource(const std::string& source_slot) {
     if (source_slot.empty()) {
         return "pickup_A";
@@ -449,7 +395,7 @@ std::string pickupGoalNameForSource(const std::string& source_slot) {
     return "pickup_A";
 }
 
-//将化验区窗口转成实际导航点
+// 化验区窗口编号 → deliver 导航点名称
 std::string deliveryGoalNameForSlot(const std::string& delivery_slot) {
     if (delivery_slot == "2" || delivery_slot == "P2") {
         return "deliver_2";
@@ -463,7 +409,7 @@ std::string deliveryGoalNameForSlot(const std::string& delivery_slot) {
     return "deliver_1";
 }
 
-// 去重，保持顺序
+// 去重并保持原有顺序
 std::vector<std::string> uniqueGoalNamesInOrder(const std::vector<std::string>& names) {
     std::vector<std::string> result;
     for (const std::string& name : names) {
@@ -474,18 +420,16 @@ std::vector<std::string> uniqueGoalNamesInOrder(const std::vector<std::string>& 
     return result;
 }
 
-// 根据样本订单生成取样路线，保证同一体检区的样本只取一次。
+// 根据订单生成取样路线（同一体检区只取一次）
 std::vector<std::string> buildPickupRoute(const std::vector<SampleOrder>& orders) {
     std::vector<std::string> route;
     for (const SampleOrder& order : orders) {
-        //传递体检区窗口，转换成导航点名字
         route.push_back(pickupGoalNameForSource(order.source_slot));
     }
-    //去重，保持顺序
     return uniqueGoalNamesInOrder(route);
 }
 
-// 根据样本订单生成配送路线，保证同一化验区窗口只送一次。
+// 根据订单生成配送路线（同一化验窗口只送一次）
 std::vector<std::string> buildDeliveryRoute(const std::vector<SampleOrder>& orders) {
     std::vector<std::string> route;
     for (const SampleOrder& order : orders) {
@@ -526,17 +470,12 @@ std::string deliveryWindowName(const std::string& delivery_slot) {
     return "化验窗口" + delivery_slot;
 }
 
-/*  这个函数的实际作用是：
-    到达 pickup_A 后，把所有 source_slot 是 A 的样本标记为 picked=true
-    到达 pickup_B 后，把所有 source_slot 是 B 的样本标记为 picked=true
-    到达 pickup_C 后，把所有 source_slot 是 C 的样本标记为 picked=true
-*/
+// 到达取样点时标记对应 source_slot 的订单为已取
 void markPickedAtGoal(std::vector<SampleOrder> orders, const std::string& goal_name) {
-    // 规则要求获取样本时车身进入方框并明显停留，建议 1~2s。
-    ros::Duration(1.5).sleep();
+    // 规则：获取样本时车身进入方框并明显停留（建议 1~2s）
+    ros::Duration(1.0).sleep();
 
     for (SampleOrder& order : orders) {
-        // 如果当前订单还没取样，并且导航点是对应的取样点，就标记为已取样。
         if (!order.picked && pickupGoalNameForSource(order.source_slot) == goal_name) {
             order.picked = true;
             ROS_INFO("到达取样点，样本获取成功: sample_id=%s, source_slot=%s",
@@ -548,9 +487,10 @@ void markPickedAtGoal(std::vector<SampleOrder> orders, const std::string& goal_n
 }
 
 
+// 到达配送点时标记对应 delivery_slot 的订单为已送
 void markDeliveredAtGoal(std::vector<SampleOrder> orders, const std::string& goal_name) {
-    // 规则要求送达样本时车身进入方框并明显停留，建议 1~2s。
-    ros::Duration(1.5).sleep();
+    // 规则：送达样本时车身进入方框并明显停留（建议 1~2s）
+    ros::Duration(1.0).sleep();
 
     int delivered_count = 0;
     std::string delivery_slot;
@@ -570,7 +510,7 @@ void markDeliveredAtGoal(std::vector<SampleOrder> orders, const std::string& goa
     }
 }
 
-// 判断是否所有样本都已取样成功。
+// 是否全部样本已取样
 bool allPicked(const std::vector<SampleOrder>& orders) {
     for (const SampleOrder& order : orders) {
         if (!order.picked) {
@@ -580,7 +520,7 @@ bool allPicked(const std::vector<SampleOrder>& orders) {
     return true;
 }
 
-// 判断是否所有样本都已配送成功。
+// 是否全部样本已配送
 bool allDelivered(const std::vector<SampleOrder>& orders) {
     for (const SampleOrder& order : orders) {
         if (!order.delivered) {
@@ -596,16 +536,8 @@ struct Board2Decision {
     std::string speech_text = "化验区空闲中，请快速通过";
 };
 
-// 解析识别板二的结果，判断化验区是否可进入，以及需要等待的时间。
+// 解析板二回传，得到等待时间与播报文本
 Board2Decision parseBoard2Decision(const std::string& board2_result) {
-    /*
-     * 识别板2结果的临时约定：
-     *   task_id=xxx;status=ok;lab_open=true;text=化验区空闲中，请快速通过
-     * 或：
-     *   task_id=xxx;status=ok;lab_open=false;wait_sec=7;text=化验区忙碌中，需等待7秒
-     *
-     * 后续视觉节点字段确定后，只需要改这个函数。
-     */
     Board2Decision decision;
     const std::map<std::string, std::string> kv = parseKeyValue(board2_result);
 
@@ -614,7 +546,7 @@ Board2Decision parseBoard2Decision(const std::string& board2_result) {
         decision.speech_text = text_it->second;
     }
 
-    // wait_sec 字段兼容 wait_seconds，单位为秒，默认 0。
+    // wait_sec 兼容 wait_seconds
     auto wait_it = kv.find("wait_sec");
     if (wait_it == kv.end()) {
         wait_it = kv.find("wait_seconds");
@@ -623,14 +555,14 @@ Board2Decision parseBoard2Decision(const std::string& board2_result) {
         decision.wait_seconds = std::max(0, std::atoi(wait_it->second.c_str()));
     }
 
-    // lab_open 字段兼容 can_enter，值为 true/false 或 1/0，默认 true。
+    // lab_open 兼容 can_enter
     auto it = kv.find("lab_open");
     if (it == kv.end()) {
         it = kv.find("can_enter");
     }
 
     if (it == kv.end()) {
-        ROS_WARN("识别板2结果中没有 lab_open/can_enter 字段，模板默认按空闲处理");
+        ROS_WARN("识别板2结果中没有 lab_open/can_enter 字段，按空闲处理");
         return decision;
     }
 
@@ -639,8 +571,7 @@ Board2Decision parseBoard2Decision(const std::string& board2_result) {
     const bool open = value == "true" || value == "1" || value == "yes" || value == "open";
     decision.can_pass = true;
 
-    // 规则要求：空闲则播报并 3s 内尽快通过；忙碌则播报并等待 n 秒后通过。
-    // 所以 busy 不是“不能进入”，而是“等待后再进入”。
+    // 规则：空闲则 3s 内尽快通过；忙碌则等待 n 秒后通过
     if (!open && decision.wait_seconds <= 0) {
         decision.wait_seconds = 5;
     }
@@ -648,6 +579,7 @@ Board2Decision parseBoard2Decision(const std::string& board2_result) {
 }
 
 
+// 识别板二并处理化验区空闲/忙碌逻辑
 bool handleBoard2BeforeLabArea(MoveBaseClient& move_client) {
     const GoalTask* board2_goal = findGoalByName("board2_scan");
     if (board2_goal == nullptr) {
@@ -661,7 +593,7 @@ bool handleBoard2BeforeLabArea(MoveBaseClient& move_client) {
 
     std::string board2_result;
     if (!requestBoard2DecodeAtCurrentPoint(board2_goal->name, &board2_result)) {
-        ROS_WARN("识别板2暂未返回结果，模板默认按空闲处理，方便联调");
+        ROS_WARN("识别板2暂未返回结果，按空闲处理");
         publishSpeechNotice("化验区空闲中，请快速通过");
         return true;
     }
@@ -678,18 +610,16 @@ bool handleBoard2BeforeLabArea(MoveBaseClient& move_client) {
     return true;
 }
 
-// -------------------- 单个二维码任务主流程 --------------------
+// 单个二维码完整流程：板一 → 取样 → 板二 → 配送
 bool runOneQrMission(MoveBaseClient& move_client) {
-    ROS_INFO("========== 开始处理识别板一中的一个二维码 ==========");
+    ROS_INFO("开始药房任务");
 
-    //获取识别板一的导航点信息
     const GoalTask* board1_goal = findGoalByName("board1_scan");
     if (board1_goal == nullptr) {
         ROS_ERROR("GOAL_LIST 中没有 board1_scan 点");
         return false;
     }
 
-    // 1. 到识别板一，获取体检区样本窗口、样本类别、目标化验区窗口。
     if (!movetoPoint(*board1_goal, move_client)) {
         return false;
     }
@@ -699,13 +629,12 @@ bool runOneQrMission(MoveBaseClient& move_client) {
     if (requestBoard1DecodeAtCurrentPoint(board1_goal->name, &board1_result)) {
         orders = parseOrdersFromBoard1Result(board1_result);
     } else {
-        ROS_WARN("识别板一暂未返回，使用假数据继续跑流程");
+        ROS_WARN("识别板一暂未返回，使用 MOCK_QR_ORDERS");
         orders = MOCK_QR_ORDERS;
     }
 
     ROS_INFO("识别板一二维码中共有 %zu 个样本，本次任务将一次性全部配送", orders.size());
 
-    // 2. 根据识别板一结果先去体检区 A/B/C 获取样本。
     const std::vector<std::string> pickup_route = buildPickupRoute(orders);
     for (const std::string& goal_name : pickup_route) {
         const GoalTask* goal = findGoalByName(goal_name);
@@ -717,23 +646,19 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         if (!movetoPoint(*goal, move_client)) {
             return false;
         }
-        // 到点即认为获取样本成功，标记已取样并发布语音播报。
         markPickedAtGoal(orders, goal_name);
     }
 
-    // 判断是否所有样本都已取样成功，如果有未取样的样本，认为任务失败，停止配送。
     if (!allPicked(orders)) {
         ROS_ERROR("仍有样本未获取，停止配送");
         return false;
     }
     publishSpeechNotice("已获取当前二维码中的全部样本");
 
-    // 3. 从体检区到达识别板二，识别化验区状态；空闲则快速通过，忙碌则等待 n 秒后通过。
     if (!handleBoard2BeforeLabArea(move_client)) {
         return false;
     }
 
-    // 4. 到化验区对应窗口配送。到点即认为对应样本已配送。
     const std::vector<std::string> delivery_route = buildDeliveryRoute(orders);
     for (const std::string& goal_name : delivery_route) {
         const GoalTask* goal = findGoalByName(goal_name);
@@ -753,7 +678,7 @@ bool runOneQrMission(MoveBaseClient& move_client) {
         return false;
     }
 
-    ROS_INFO("========== 当前二维码中的全部样本配送完成 ==========");
+    ROS_INFO("药房任务完成");
     publishSpeechNotice("当前二维码中的全部样本配送完成");
     return true;
 }
@@ -778,10 +703,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    //二维码配送完成
     const bool ok = runOneQrMission(move_client);
 
-    // 任务结束后回起点，方便下一轮调试。
     const GoalTask* home_goal = findGoalByName("home");
     if (home_goal != nullptr) {
         movetoPoint(*home_goal, move_client);
